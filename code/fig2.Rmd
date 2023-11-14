@@ -1,0 +1,332 @@
+---
+title: "Figure 2"
+author: "YueanZhao"
+output: html_document
+---
+```{r}
+rm(list = ls())
+gc()
+```
+
+# T8
+```{r}
+scRNAsubT8 <- readRDS("rds/scRNAsubT8_anno_TCRpercent_Cycling.NoCD4.rds")
+DefaultAssay(scRNAsubT8) <- "RNA"
+
+scRNAsubT8$cell_type <- factor(scRNAsubT8$cell_type, levels = order_T8)
+scRNAsubT8$cell_type_main <- factor(scRNAsubT8$cell_type_main, levels = order_T8_main)
+scRNAsubT8$orig.ident <- factor(scRNAsubT8$orig.ident,levels = order_origID)
+scRNAsubT8$disease<- factor(scRNAsubT8$disease, levels =c("Pneumonia","Ctrl"))
+```
+
+## fig2a T8 DimPlot
+```{r}
+p = DimPlot(scRNAsubT8, group.by = "cell_type_T8",cols = color_T8,label = F) + 
+    theme_cowplot() + theme_blank + NoLegend()
+ggsave("fig2/2a_T8_DimPlot.png",p, width = 5, height = 5)
+```
+
+```{r}
+p = DimPlot(scRNAsubT8, group.by = "cell_type_T8",cols = color_T8) 
+l =as_ggplot(get_legend(p)) 
+ggsave("fig2/2a_T8_DimPlot_legend.pdf",l)
+```
+
+## fig2b FeaturePlot
+```{r}
+DefaultAssay(scRNAsubT8) <- "RNA"
+markergene_T8 <- c("SELL","CX3CR1","GZMK","ITGAE","MKI67","SLC4A10")
+
+plot.list <- lapply(X = markergene_T8, FUN = function(x) {
+  FeaturePlot(scRNAsubT8 ,
+              cols = greyMagma, 
+              features = x, raster = F)+
+    NoLegend()+theme_blank+labs(NULL)+
+    theme(plot.title = element_blank())
+})
+
+p <- wrap_plots(plots = plot.list, nrow=3)    
+ggsave("fig2/2b_T8_Featureplot.png", plot = p, width =7 , height = 10.5) 
+```
+
+```{r}
+p = FeaturePlot(scRNAsubT8,features="CX3CR1",cols = greyMagma,raster = F) + 
+    theme_blank
+l =as_ggplot(get_legend(p)) 
+ggsave("fig2/2b_T8_FeaturePlot_legend.pdf",l)
+```
+
+## fig2c gene corplot
+```{r}
+disease <- scRNAsubT8[,scRNAsubT8$disease %in% "Pneumonia"]
+##heatmap
+DefaultAssay(disease) <- "RNA"
+T_genes <- c("CCR7","SELL",#naive
+             "GPR183","IL7R","GZMK",#memory
+             "FGFBP2","GNLY","GZMB","CX3CR1",#effector
+             "SLC4A10","FGFBP2","KLRC2","KLRG1",
+             "ITGAE","CXCR6","CXCR3",
+             "MKI67","TOP2A")
+
+disease$cell_type_main <- factor(disease$cell_type_main,levels = order_T8_main)
+disease <- SetIdent(disease,value = "cell_type_main")
+
+T_genes <- intersect(T_genes, rownames(GetAssayData(disease, slot = 'data')))
+mat <- AverageExpression(disease, features = T_genes, slot = 'data',assays = "RNA")
+mat1 <- t(scale(t(mat$RNA)))
+
+p = Heatmap(mat1, name = "avg_Exp", cluster_rows = T, cluster_columns = T,
+            col = colorRamp2(c(-2, 0, 2), c("#2166ac","white","#b2182b")),
+            column_names_rot = 45,
+            column_names_gp = gpar(fontsize = 16),
+            row_names_gp = gpar(fontsize = 16),
+            heatmap_legend_param = list(labels_gp = gpar(font = 14),direction = "vertical"),
+            width = unit(2.8, "in"), height = unit(8.5, "in"))
+
+pdf("fig2/2c_T8_heatmap_gene_disease.pdf",width = 10,height = 11)
+draw(p)
+dev.off()
+```
+
+## fig2d T8  facet sample type
+```{r}
+md <- cbind(scRNAsubT8[["cell_type_T8"]],scRNAsubT8[["sample_type"]], Embeddings(scRNAsubT8[["umap"]]))
+p = ggplot(md, aes(x = UMAP_1, y = UMAP_2,color = cell_type_T8))+
+  geom_point(shape = 16,size = 1,alpha = 0.5)  +
+  scale_color_manual(values = color_T8)+theme_cowplot()+theme_blank+NoLegend()+
+  facet_wrap(~sample_type)+
+  theme(strip.background = element_blank(),strip.text = element_blank())
+ggsave("fig2/2d_T8_DimPlot_sampletype.png",p, width = 12, height = 4)
+```
+
+## fig2d T8 lung density facet disease
+```{r}
+lung <- scRNAsubT8[,scRNAsubT8$sample_type %in% "Lung" & !(scRNAsubT8$patient %in% "C2")]
+
+umap = lung@reductions$umap@cell.embeddings %>% 
+       as.data.frame() %>% 
+       cbind(group = lung@meta.data$disease)
+
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~group, nrow = 1) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = c("#FBF9C1", "#FFC30F", "#FF5744", "#C70039", "#900C3F", "#581845"))+
+    theme_cowplot() + 
+    theme(axis.title=element_blank(),axis.text=element_blank(),
+                     axis.ticks=element_blank(),axis.line=element_blank(),
+                     plot.title=element_text(hjust = 0.5),
+          strip.text = element_blank(),strip.background = element_blank())+
+    NoLegend()
+
+ggsave("fig2/2d_T8_density_lung.png",p,width = 10, height = 5)
+```
+
+```{r}
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~group, nrow = 1) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = rev(  c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    theme(legend.direction = "vertical")
+
+l =as_ggplot(get_legend(p)) 
+ggsave("fig2/2d_T8_density_lung_legend.pdf",l)
+```
+
+## fig2e stacked barplot
+```{r}
+disease <- scRNAsubT8[,scRNAsubT8$disease %in% "Pneumonia"]
+disease$cell_type_T8<- factor(disease$cell_type_T8, levels =order_T8)
+
+Ratio <- disease@meta.data %>%
+  group_by(sample_type, cell_type_T8) %>% # 分组
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+         
+p= ggplot(Ratio,aes(x=sample_type,y= relative_freq,
+                    fill=cell_type_T8,stratum=cell_type_T8, alluvium=cell_type_T8))+
+  geom_col(width = 0.5, color='black',size = 0.25)+
+  xlab(NULL)+ylab("T8 Pneumonia Celltype Percentage")+
+  scale_fill_manual(values =color_T8)+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.key.size = unit(0.1,"in"))+
+  geom_flow(width=0.5,alpha=0.4, knot.pos=0.5)
+
+ggsave("fig2/2e_T8_prop_celltype_sampletype.pdf",p,width = 3.5, height = 4)
+```
+
+## fig2f prop
+```{r}
+lung <- scRNAsubT8[,scRNAsubT8$sample_type %in% "Lung" & !(scRNAsubT8$patient %in% "C2")]
+lung$cell_type_main<- factor(lung$cell_type_main, levels = order_T8_main)
+
+df_tobesummed_main = data.frame(orig.ident = lung$orig.ident, group = lung$disease, 
+                                cell_type = lung$cell_type_main)
+df_summed_main = df_tobesummed_main %>% group_by(orig.ident, cell_type, group) %>% tally()
+df_summed_main = df_summed_main %>% group_by(orig.ident) %>% mutate(freq = n/sum(n))
+
+stat.test <- df_summed_main%>% group_by(cell_type) %>% wilcox_test(freq ~ group) %>%add_significance()%>% add_xy_position(x = "cell_type")
+
+p = ggboxplot(df_summed_main, x = "cell_type", y = "freq",color = "group", add = "jitter",
+              palette = color_disease,width = 0.6,
+              add.params = list( color = "group", size = 2)) + 
+    ylim(0, 0.7) + 
+    stat_pvalue_manual(stat.test, label = "p.signif",hide.ns =T) +
+    xlab(NULL)+ylab("Fraction of T8 Cells in Lung")+
+    theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,
+                                     colour = c("black","black","black","black",
+                                                "black","#b2182b","#b2182b","black")),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5),legend.position = "top")
+ggsave("fig2/2f_T8_box_prop_celltype_main.pdf", plot = p, width = 4 , height = 4)
+```
+
+## fig2g proportion correlation
+```{r}
+disease <- scRNAsubT8[,scRNAsubT8$disease %in% "Pneumonia"]
+df = data.frame(orig.ident = disease$orig.ident, 
+                group = disease$disease, 
+                cell_type = disease$cell_type_main, 
+                sample = disease$sample_type)
+df_summed = df %>% group_by(orig.ident, cell_type, sample, group) %>% tally()
+df_summed = df_summed %>% group_by(orig.ident) %>% mutate(freq = n/sum(n))
+
+mat <- reshape2::dcast(df_summed,orig.ident~cell_type, value.var = "freq")
+rownames(mat) <- mat[,1]
+mat <- mat[,-1]
+
+#####将NA替换为0
+myfill <- function(df){
+  df2 <- df %>%
+    mutate(across(where(is.character),function(x){ replace(x,is.na(x),"0")})) %>%
+    mutate(across(where(is.numeric),function(x) {replace(x,is.na(x),0)}))
+  return(df2)
+} 
+mat <- myfill(mat)
+library(Hmisc)
+res2 <- rcorr(as.matrix(mat), type="spearman")
+bb <- as.data.frame(res2$P)
+```
+
+```{r}
+A = as.data.frame(cbind("r" = as.data.frame(res2$r)$Cycling, 
+                        "p" = as.data.frame(res2$P)$Cycling, 
+                        "celltype" = colnames(as.data.frame(res2$P))))
+A$celltype <- factor(A$celltype, levels = order_T8_main)
+A$celltype <- fct_inorder(A$celltype)
+
+A <- A[c(1:6,8),]
+A$r <- as.numeric(A$r)
+A$p <- as.numeric(A$p)
+```
+
+```{r}
+p <- ggplot(A,aes(x=celltype,y=r))+
+    geom_segment(aes(x=celltype,xend=celltype,y=0,yend=r), size=1,linetype="solid")+
+  geom_point(data=A,aes(size=abs(r),color=p))+
+  geom_hline(yintercept = 0,linetype="dashed")+
+  scale_size(rang = c(0,8))+
+  scale_color_gradientn(colors = c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F"))+
+  labs(x="", y='Pneumonia T8 Prop Corr',title = "",
+       size = "corr", color = "p.val")+
+  theme_cowplot()+
+  theme(axis.text.x=element_text(angle=45,hjust = 1,vjust=1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(hjust=0.5))+
+  ylim(-0.6,0.2)+
+  scale_x_discrete(limits = c("T8_em","T8_emra/eff","T8_cm","MAIT","T8_NK-like","T8_naive","T8_rm"))
+
+ggsave("fig2/2g_T8_corr_prop_cycling.pdf", plot = p, width = 4 , height = 4)
+```
+
+## fig2h rm vlnplot
+
+```{r}
+scRNArm <- scRNAsubT8[,scRNAsubT8$cell_type_main %in% c("T8_rm")]
+scRNArm <- scRNArm[,!(scRNArm$patient %in% "C2")]
+DefaultAssay(scRNArm) <- "RNA"
+```
+
+```{r}
+p = VlnPlot(scRNArm, features = c("GZMB","IFI27","IL7R","KLF2"), cols = c("#b2182b","#2166ac"),
+            group.by = "disease",pt.size = 0,assay = 'RNA',split.by = "disease",stack =T,flip = T)+NoLegend()+
+  xlab(NULL)+
+  theme(axis.text.x  = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(face = "plain",size = 14))
+ggsave('fig2/2h_T8_Vlnplot_disease.pdf',p, height=4, width=3)
+```
+
+## fig2i viral heatmap
+```{r}
+scRNAsub <- scRNAsubT8[,!(scRNAsubT8$patient %in% "C2")]
+scRNAsub[["viral"]] <- NA
+scRNAsub$viral[scRNAsub$patient == "P1"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P2"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P3"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P4"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P5"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P6"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P7"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P8"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P9"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P10"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P11"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P12"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "C1"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C3"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C4"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C5"] <- "ctrl"
+```
+
+```{r}
+lung_rm <- scRNAsub[,scRNAsub$sample_type %in% "Lung" & scRNAsub$cell_type_main %in% "T8_rm"]
+DefaultAssay(lung_rm) <- "RNA"
+DEG <- FindMarkers(lung_rm,group.by = "viral",ident.1 = "viral", ident.2 = "non-viral",test.use = "MAST")
+write.csv(DEG, "sTable/2i_DEG_T8_lung_rm_viral_vs_nonviral.csv")
+```
+
+
+```{r}
+dput(rownames(subset(DEG,DEG$avg_log2FC > 1 | DEG$avg_log2FC < -1)))
+
+gene_selected <- c("CCL5", "PRKY", "PTPRCAP", "MALAT1", "CD8B", 
+"CLIC3", "RNF213", "FKBP5", "IL12RB2", "CHST11",
+"ZNF683", "SLC35F1", "CD74", "CD7", "PLAAT4", "LGALS3", 
+"SLFN12L", "HOPX", "KLRC1", "GPR25",  "TNF", "IFI27", 
+"CXCL13", "BCL2", "GADD45B",  "CD27", 
+"LGALS1",  "GNLY", "CCL4L2",  "GZMB","TCF7","ITGA1", "ITGAE", "CXCR3", "CXCR6","IL7R")
+```
+
+```{r}
+lung_rm$viral <- factor(lung_rm$viral,levels = c("viral","non-viral","undetected","ctrl"))
+lung_rm <- SetIdent(lung_rm,value = "viral")
+T_genes <- intersect(gene_selected, rownames(GetAssayData(lung_rm, slot = 'data')))
+mat <- AverageExpression(lung_rm, features = T_genes, slot = 'data',assays = "RNA")
+mat1 <- scale(t(mat$RNA))
+
+p = Heatmap(mat1, name = "avg_Exp", cluster_rows = T, cluster_columns = T,
+            col = colorRamp2(c(-2, 0, 2), c("#2166ac","white","#b2182b")),
+            column_names_rot = 45,
+            column_names_gp = gpar(fontsize = 16),
+            row_names_gp = gpar(fontsize = 16),
+            row_names_side = c("left"),
+            heatmap_legend_param = list(labels_gp = gpar(font = 14),direction = "vertical"),
+            width = unit(10, "in"), height = unit(2.5, "in"))
+
+pdf("fig2/2i_heatmap_gene_rm_viral.pdf",width = 13,height = 4)
+draw(p)
+dev.off()
+```
+
