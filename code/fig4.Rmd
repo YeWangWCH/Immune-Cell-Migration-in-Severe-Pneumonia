@@ -1,0 +1,459 @@
+---
+title: "Figure 4"
+author: "YueanZhao"
+output: html_document
+---
+
+```{r}
+rm(list = ls())
+gc()
+```
+
+# 4a P6 infection dimplot
+```{r}
+scRNA_P6 <- readRDS("rds/scRNA_P6_fluB.rds")
+scRNA_P6$cell_type <- factor(scRNA_P6$cell_type, levels = order_celltype)
+
+md <- cbind(scRNA_P6[["cell_type"]],
+            scRNA_P6[["fluB"]],
+            Embeddings(scRNA_P6[["umap"]]))
+
+p = ggplot(md[!is.na(md$fluB),], 
+           aes(x = UMAP_1, y = UMAP_2, color = cell_type))+
+  geom_point(data = md[is.na(md$fluB),], color = "lightgrey", size = 1)  + 
+  geom_point(shape = 16,size = 3)  +
+  scale_color_manual(values = color_celltype)+
+  theme_cowplot()+theme_blank + NoLegend()
+
+ggsave("fig4/4a_P6_flu_DimPlot.png",p,width = 5, height = 5)
+```
+
+```{r}
+p = ggplot(md[!is.na(md$fluB),], 
+           aes(x = UMAP_1, y = UMAP_2, color = cell_type))+
+  geom_point(data = md[is.na(md$fluB),], color = "lightgrey", size = 1)  + 
+  geom_point(shape = 16,size = 3)  +
+  scale_color_manual(values = color_celltype)+theme_cowplot()
+l =as_ggplot(get_legend(p)) 
+ggsave("fig4/4a_P6_flu_DimPlot_legend.pdf",l)
+```
+
+# 4b P6 flu barplot
+```{r}
+scRNA_flu <- scRNA_P6[,!is.na(scRNA_P6$fluB)]
+clusters <- data.frame(table(scRNA_flu$cell_type,scRNA_flu$sample_type))
+pbmc <- clusters[1:18,]
+pbmc$Var2 <- "PBMC"
+pbmc$Freq <- 0
+clusters <- rbind(clusters,pbmc)
+colnames(clusters)[1:3]<- c("cell_type","sample_type","Freq")
+```
+
+```{r}
+p = ggplot(clusters) + 
+    geom_bar(aes(x =sample_type, y= Freq, fill = cell_type),
+             position ="stack",stat = "identity",width = 0.7) + 
+    scale_fill_manual(values=color_celltype)+
+    labs(x=NULL,y = 'Number of Cells with Influenza B virus RNA')+
+    labs(fill = "cell_type")+
+    theme_cowplot()+
+    scale_y_continuous(expand = c(0,0))+
+    theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))+
+    coord_cartesian(ylim = c(0,26))+NoLegend()
+ggsave("fig4/4b_P6_flu_barplot_celltype&sampletype.pdf",p,width = 3,height = 5)
+```
+
+```{r}
+p = ggplot(subset(clusters,Freq != 0)) + 
+  geom_bar(aes(x =sample_type, y= Freq, fill = cell_type),
+           position ="stack",stat = "identity",width = 0.4) + 
+  scale_fill_manual(values=color_celltype)+theme_cowplot()
+l =as_ggplot(get_legend(p)) 
+ggsave("fig4/4b_P6_flu_barplot_celltype&sampletype_legend.pdf",l)
+```
+
+# 4c cellchat MHC-I "Influenza B Virus" "P6_T_1","P6_T_10","P6_T_6","P6_T_9"
+```{r}
+cellchat <- readRDS("cellchat/cellchat_flu_P6T1&6&9&10_MHCI.rds")
+```
+
+```{r}
+svglite(file = "fig4/4c_flu_P6T1&6&9&10_cellchat_MHC1.svg", width=7, height=7)
+netVisual_aggregate(cellchat, signaling ="MHC-I", layout = "circle",sources.use = "Influenza B Virus",
+                    color.use = c("#F55353","#74C476","#34A047","#F47E1F","#FCBF6E"))
+dev.off()
+```
+
+# 4d P6 top10 TCR barplot
+```{r}
+P6_top10 <- readRDS("rds/P6_top10TCR_pattern_MHCIscore.rds")
+
+df = data.frame(MHCI = P6_top10$P6_MHCI,pattern = P6_top10$pattern, 
+                TCR_ID = P6_top10$TCR_ID, sample = P6_top10$sample_type)
+df_summed = df %>% group_by(TCR_ID, sample, MHCI,pattern) %>% tally()
+df_summed2 = df_summed %>% group_by(TCR_ID) %>% mutate(sum(n))
+colnames(df_summed2)[6] <- "sum"
+df_summed2 <- arrange(df_summed2,df_summed2[,4], -df_summed2[,6])
+
+df_summed2$TCR_ID <- factor(df_summed2$TCR_ID, levels = unique(df_summed2$TCR_ID)) 
+df_summed2$sample <- factor(df_summed2$sample, levels = c('BALF','Lung','PBMC'))
+
+p1 =ggplot(df_summed2) + 
+  geom_bar(aes(x=TCR_ID, y=n, fill = sample),stat = "identity",width = 0.7)+
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  geom_text(data=df_summed2 , aes(x = TCR_ID, y=sum, label=sum),size = 5,
+            position = position_dodge(0.9),vjust= -0.5)+
+  scale_fill_manual(values=color_sampletype)+
+  theme(axis.text.x = element_blank(),axis.ticks.x = element_blank(),axis.line.x = element_blank(),
+        axis.text.y = element_text(size = 16),axis.title.y = element_text(size = 16),
+        plot.margin=unit(c(1,1,0,1), 'cm'))+
+  scale_y_continuous(expand = c(0,0)) +
+  ylim(0,500)+
+  NoLegend()
+
+p =ggplot(df_summed2) + 
+  geom_bar(aes(x=TCR_ID, y=n, fill = sample),stat = "identity",width = 0.7)+
+  scale_fill_manual(values=color_sampletype)+theme_cowplot()
+l1 =as_ggplot(get_legend(p)) 
+```
+
+
+```{r}
+df_heatmap <- df_summed2[,c(1,3)]
+df_heatmap <- unique(df_heatmap)
+df_heatmap <- as.data.frame(df_heatmap)
+df_heatmap$y <- "MHC-I score"
+p2 = ggplot(df_heatmap, aes(TCR_ID,y,fill= MHCI)) + 
+  geom_tile()+
+  scale_fill_gradientn(colors = rev(c("#D6604D","#F4A582","#FDDBC7","#F7F7F7","#D1E5F0","#92C5DE","#4393C3")))+
+  theme_cowplot()+
+  theme(axis.title=element_blank(),axis.text.x=element_blank(),
+        axis.ticks=element_blank(),axis.line=element_blank(),
+        plot.title=element_blank())+
+  theme(plot.margin=unit(c(0,1,0,1), 'cm'))+NoLegend()
+
+p = ggplot(df_heatmap, aes(TCR_ID,y,fill= MHCI)) + 
+  geom_tile()+
+  scale_fill_gradientn(colors = rev(c("#D6604D","#F4A582","#FDDBC7","#F7F7F7","#D1E5F0","#92C5DE","#4393C3")))+
+  theme_cowplot()
+l2 =as_ggplot(get_legend(p)) 
+```
+
+```{r}
+df_pattern <- df_summed2[,c(1,4)]
+df_pattern <- as.data.frame(df_pattern)
+df_pattern <- unique(df_pattern)
+df_pattern$y <- "pattern"
+p3 = ggplot(df_pattern, aes(TCR_ID,y,fill= pattern)) + 
+  geom_tile()+theme_cowplot()+ylab(NULL)+
+  scale_fill_manual(values = c("#ED7216","#1F8A70"))+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,size = 16),
+        axis.title.y = element_blank(),axis.ticks.y = element_blank(),axis.line.y=element_blank(),
+        plot.margin=unit(c(0,1,0,1), 'cm'))+NoLegend()
+
+p = ggplot(df_pattern, aes(TCR_ID,y,fill= pattern)) + 
+  geom_tile()+theme_cowplot()+ylab(NULL)+
+  scale_fill_manual(values = c("#ED7216","#1F8A70"))
+l3 =as_ggplot(get_legend(p)) 
+```
+
+```{r}
+p = p1/p2/p3+plot_layout(heights=c(1, 0.1, 0.1))+theme(legend.justification = "top")
+ggsave("fig4/4d_P6_top10TCR_pattern_barplot.pdf",p,width = 7,height = 4)
+```
+
+```{r}
+l = l1+l2+l3
+ggsave("fig4/4d_P6_top10TCR_pattern_barplot_legend.pdf",l)
+```
+
+# 4e P6 MHCI score VlnPlot
+
+```{r}
+cellchat <- readRDS("cellchat/cellchat_flu_P6TCR(>10)_MHCI.rds")
+aa = list(cellchat@netP)
+cc = aa[[1]]$prob
+dd = cc[1:55,1:55,"MHC-I"]
+dd = dd[,-1]
+dd = dd[1,]
+```
+
+```{r}
+scRNAsubT8 <- readRDS("rds/scRNAsubT8_anno_TCRpercent_Cycling.NoCD4.rds")
+scRNAsubT8[["P6_MHCI"]] <- NA
+data <- as.data.frame(dd)
+scRNAsubT8$P6_MHCI <- data$dd[match(scRNAsubT8$TCR_ID, rownames(data))]
+scRNAsubT8@meta.data$P6_MHCI <- as.numeric(scRNAsubT8@meta.data$P6_MHCI)
+```
+
+## s4g P6 TCR heatmap
+```{r}
+P6_TCR = as.data.frame(table(scRNAsubT8[,scRNAsubT8$freq_bchain_sample >= 10 & 
+                                          scRNAsubT8$sample_type %in% "Lung" & 
+                                          scRNAsubT8$patient %in% "P6"]$TCR_ID))$Var1
+```
+
+```{r}
+mat <- scRNAsubT8@meta.data[,c("sample_type","TCR_ID","TCR_percent","group")]
+mat <- mat %>% drop_na()
+mat <- mat[!duplicated(mat),]
+mat <- subset(mat, mat$TCR_ID %in% P6_TCR )
+mat$TCR_percent <- mat$TCR_percent*100
+```
+
+```{r}
+mat1 <- mat %>% mutate(log_percent = log10(TCR_percent+1))
+mat1 <- dplyr::select(mat1,-3)
+```
+
+```{r}
+mat1 <- dcast(mat1,TCR_ID~sample_type, value.var = "log_percent")
+rownames(mat1) <- mat1[,1]
+mat1 <- mat1[,-1]  
+mat1 <- myfill(mat1)
+```
+
+```{r}
+set.seed(200)
+p = Heatmap(mat1, name = "log10(TCR%+1)", 
+                         cluster_rows = T, cluster_columns = FALSE,na_col = 'grey',
+                         row_km = 3,
+                         column_title = "P6 TCR abundance heatmap",
+                         show_row_names = T,clustering_method_rows = "complete",
+                         col=colorRampPalette(rev(brewer.pal(n = 7, name ="RdYlBu")))(100)
+                         ) 
+
+
+  pdf("figS4/s4g_TCR_heatmap_P6.pdf",width=4,height=9)
+  draw(p)
+  dev.off()
+```
+
+```{r}
+set.seed(200)
+rcl.list <- ComplexHeatmap::row_order(p)
+```
+
+```{r}
+TCRID_clus_group1 <- rownames(mat1[rcl.list[[1]],])
+TCRID_clus_group2 <- rownames(mat1[rcl.list[[2]],])
+TCRID_clus_group3 <- rownames(mat1[rcl.list[[3]],])
+
+P6_pattern <- scRNAsubT8[,scRNAsubT8$TCR_ID %in% c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3)]
+
+df <- as.data.frame(cbind(c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3),
+                          rep(c("pattern 1a","pattern 1a","pattern 2"),
+                              c(length(TCRID_clus_group1),
+                                length(TCRID_clus_group2),
+                                length(TCRID_clus_group3)))))
+
+P6_pattern$pattern <- df$V2[match(P6_pattern$TCR_ID, df$V1)]
+```
+
+
+```{r}
+df <- P6_pattern@meta.data
+df <- cbind(df$P6_MHCI,df$pattern,df$TCR_ID)
+df <- unique(df)
+df <- as.data.frame(df)
+df <- subset(df,V2 %in% c("pattern 1a","pattern 2"))
+colnames(df) <- c("MHCI", "pattern", "TCR_ID")
+df$MHCI <- as.numeric(df$MHCI)
+df$pattern <- factor(df$pattern, levels = c("pattern 1a","pattern 2"))
+
+stat.test <- df %>% wilcox_test(MHCI ~ pattern) %>%add_significance()%>% add_xy_position(x = "pattern")
+stat.test$y.position <- 4.5
+
+p = ggviolin(df, x = "pattern", y = "MHCI",color = "pattern",
+             add = c("dotplot"),trim = F,  width = 0.8,size = 1.5,
+             palette = c("#ED7216","#1F8A70"),
+             add.params = list( size = 1, alpha = 0.6))+
+  stat_pvalue_manual(stat.test, label = "p.signif",hide.ns =T)+
+  ylim(0,4.7)+
+  ylab("P6 MHC-I Cellchat Communication Prob") + xlab(NULL) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 16))
+ggsave("fig4/4e_P6_MHCI_vlnPlot.pdf",p,width = 4, height = 6)
+```
+
+# 4f MHC-I score FeaturePlot
+```{r}
+disease_pattern <- readRDS("rds/T8_disease_TCRpattern.rds")
+scRNAsubT8$pattern <- disease_pattern$pattern[match(rownames(scRNAsubT8@meta.data), rownames(disease_pattern@meta.data))]
+
+md <- cbind(scRNAsubT8[["TCR_ID"]],scRNAsubT8[["sample_type"]],scRNAsubT8[["pattern"]], Embeddings(scRNAsubT8[["umap"]]))
+
+p1 = ggplot(md[!is.na(md$pattern),], aes(x = UMAP_1, y = UMAP_2))+
+  geom_point(data = md[is.na(md$pattern),], color = "lightgrey", size = 1)+ 
+  geom_pointdensity(data = md[md$pattern %in% c("pattern 2"),],
+                    adjust = 10,alpha = 0.4)+  
+  scale_color_gradientn(colors = brewer.pal(10,"BuGn"))+
+  new_scale("color")+
+  geom_pointdensity(data = md[md$pattern %in% c("pattern 1a"),],
+                    adjust = 10,alpha = 0.4)+  
+  scale_color_gradientn(colors = brewer.pal(10,"OrRd"))+
+  facet_wrap(~sample_type) +
+  theme_cowplot()+theme_blank+
+  theme(strip.background = element_blank(),strip.text.x = element_blank())+NoLegend()
+
+p = ggplot(md[!is.na(md$pattern),], aes(x = UMAP_1, y = UMAP_2))+
+  geom_point(data = md[is.na(md$pattern),], color = "lightgrey", size = 1)+ 
+  geom_pointdensity(data = md[md$pattern %in% c("pattern 2"),],
+                    adjust = 10,alpha = 0.4)+  
+  scale_color_gradientn(colors = brewer.pal(10,"BuGn"))+ labs(color = "pattern 2\ndensity")+
+  new_scale("color")+
+  geom_pointdensity(data = md[md$pattern %in% c("pattern 1a"),],
+                    adjust = 10,alpha = 0.4)+  
+  scale_color_gradientn(colors = brewer.pal(10,"OrRd"))+ labs(color = "pattern 1a\ndensity")+
+  facet_wrap(~sample_type) +
+  theme_cowplot()+theme_blank+
+  theme(strip.background = element_blank(),strip.text.x = element_blank())+
+  theme(legend.direction = "vertical", legend.box = "horizontal")
+l1 =as_ggplot(get_legend(p)) 
+```
+
+```{r}
+md <- cbind(scRNAsubT8[["P6_MHCI"]],scRNAsubT8[["sample_type"]], Embeddings(scRNAsubT8[["umap"]]))
+md$P6_MHCI <- as.numeric(md$P6_MHCI)
+
+p2 = ggplot(md[!is.na(md$P6_MHCI),], aes(x = UMAP_1, y = UMAP_2, color = P6_MHCI))+
+  geom_point(data = md[is.na(md$P6_MHCI),], color = "lightgrey", size = 1)+ 
+  geom_point(shape = 16,size = 2)+  
+  facet_wrap(~sample_type) +
+  scale_color_gradientn(colors = c("#2166AC", "#4393C3", "#92C5DE", "#F4A582", "#D6604D", "#B2182B"))+
+  theme_cowplot()+theme_blank+
+  theme(strip.background = element_blank(),strip.text.x = element_blank())+NoLegend()
+
+p = ggplot(md[!is.na(md$P6_MHCI),], aes(x = UMAP_1, y = UMAP_2, color = P6_MHCI))+
+  geom_point(data = md[is.na(md$P6_MHCI),], color = "lightgrey", size = 1)+ 
+  geom_point(shape = 16,size = 2)+  
+  facet_wrap(~sample_type) +
+  scale_color_gradientn(colors = c("#2166AC", "#4393C3", "#92C5DE", "#F4A582", "#D6604D", "#B2182B"))+
+  theme_cowplot()+theme_blank
+l2 =as_ggplot(get_legend(p))
+```
+
+```{r}
+p = p1/p2
+ggsave("fig4/4f_MHCI_featureplot.png",p,width = 15, height = 10)
+
+l = l1/l2
+ggsave("fig4/4f_MHCI_featureplot_legend.pdf",l,width = 6, height = 4)
+```
+
+# 4h P10_T_7 dimplot
+```{r}
+md <- cbind(scRNAsubT8[["TCR_ID"]],scRNAsubT8[["sample_type"]], Embeddings(scRNAsubT8[["umap"]]))
+
+p = ggplot(md[md$TCR_ID == "P10_T_7",], aes(x = UMAP_1, y = UMAP_2,color = sample_type))+
+  geom_point(data = md[md$TCR_ID != "P10_T_7",], color = "lightgrey", size = 1)+ 
+  geom_point(shape = 16,size = 3,alpha = 1)  +
+  scale_color_manual(values = color_sampletype)+theme_cowplot()+theme_blank+NoLegend()
+ggsave("fig4/4g_P10T7_dimplot.png",p,width = 5, height = 5)
+```
+
+```{r}
+p = ggplot(md[md$TCR_ID == "P10_T_7",], aes(x = UMAP_1, y = UMAP_2,color = sample_type))+
+  geom_point(data = md[md$TCR_ID != "P10_T_7",], color = "lightgrey", size = 1)+ 
+  geom_point(shape = 16,size = 3,alpha = 1)  +
+  scale_color_manual(values = color_sampletype)+theme_cowplot()+theme_blank
+l =as_ggplot(get_legend(p)) 
+ggsave("fig4/4g_P10T7_dimplot_legend.pdf",l)
+```
+
+# 4i P10_T_7 scvelo
+```{r}
+seurat_obj <- scRNAsubT8[,scRNAsubT8$TCR_ID == "P10_T_7"]
+seurat_obj <- seurat_obj[,seurat_obj$cell_type_main %in% c("T8_em", "T8_rm","T8_emra/eff")]
+```
+
+```{r}
+seurat_obj$barcode <- colnames(seurat_obj)
+seurat_obj$UMAP_1 <- seurat_obj@reductions$umap@cell.embeddings[,1]
+seurat_obj$UMAP_2 <- seurat_obj@reductions$umap@cell.embeddings[,2]
+write.csv(seurat_obj@meta.data, file='fig4/scvelo/metadata.csv', quote=F, row.names=F)
+
+# write expression counts matrix
+library(Matrix)
+counts_matrix <- GetAssayData(seurat_obj, assay='RNA', slot='counts')
+writeMM(counts_matrix, file= 'fig4/scvelo/counts.mtx')
+
+# write dimesnionality reduction matrix, in this example case pca matrix
+write.csv(seurat_obj@reductions$pca@cell.embeddings, file='fig4/scvelo/pca.csv', quote=F, row.names=F)
+
+# write gene names
+write.table(
+  data.frame('gene'=rownames(counts_matrix)),file='fig4/scvelo/gene_names.csv',
+  quote=F,row.names=F,col.names=F
+)
+```
+
+
+# 4j P10_T_7 latent time expression
+
+```{r}
+meta <- read_csv("rds/P10_T_7_scvelo_metadata_30.csv")
+meta <- as.data.frame(meta)
+seurat_obj$latent_time <- meta$latent_time[match(rownames(seurat_obj@meta.data), meta$barcode...1)]
+```
+
+```{r}
+gene1<- FetchData(seurat_obj, vars = c("ITGAE","CXCR6","CXCR3",
+                                       "CX3CR1","FGFBP2","GZMB","PRF1"))
+
+seurat_obj$ITGAE <- gene1$ITGAE[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+seurat_obj$CXCR6 <- gene1$CXCR6[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+seurat_obj$CXCR3 <- gene1$CXCR3[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+
+seurat_obj$CX3CR1 <- gene1$CX3CR1[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+seurat_obj$FGFBP2 <- gene1$FGFBP2[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+seurat_obj$GZMB <- gene1$GZMB[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+seurat_obj$PRF1 <- gene1$PRF1[match(rownames(seurat_obj@meta.data), rownames(gene1))]
+```
+
+```{r}
+df1 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$ITGAE))
+df2 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$CXCR6))
+df3 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$CXCR3))
+
+df <- rbind(df1,df2,df3)
+df$gene <- rep(c("CXCR6","ITGAE","CXCR3"),each = 87)
+colnames(df) <- c("latent_time", "expression", "gene")
+
+p1 = ggplot(df,aes(x = latent_time, y = expression,color = gene))+
+  stat_smooth(se = F)+theme_cowplot()+
+  scale_color_manual(values = c("#A63603","#F16913","#FDAE6B"))+
+  geom_vline(xintercept = 0.5,color = "#616161", size = 0.8, linetype = "dashed")+
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 16))
+
+
+df1 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$CX3CR1))
+df2 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$FGFBP2))
+df3 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$GZMB))
+df4 <- as.data.frame(cbind(seurat_obj$latent_time,seurat_obj$PRF1))
+
+df <- rbind(df1,df2,df3,df4)
+df$gene <- rep(c("CX3CR1","FGFBP2","GZMB","PRF1"),each = 87)
+colnames(df) <- c("latent_time", "expression", "gene")
+
+p2 = ggplot(df,aes(x = latent_time, y = expression, color = gene))+
+  stat_smooth(se = F)+theme_cowplot()+
+  scale_color_manual(values = c("#229954", "#7DCEA0", "#F06292","#D81B60"))+
+  geom_vline(xintercept = 0.5,color = "#616161", size = 0.8, linetype = "dashed")+
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 16))
+
+p = p1/p2
+ggsave("fig4/4i_latenttime_P10T7.pdf",p,width = 5, height = 5)
+```

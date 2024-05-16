@@ -1,0 +1,267 @@
+---
+title: "figure S6"
+author: "YueanZhao"
+output: html_document
+---
+
+```{r}
+rm(list = ls())
+gc()
+```
+
+```{r}
+scRNAsubM <- readRDS("rds/scRNAsubM_macro&mono_anno.rds")
+scRNAsubE <- readRDS("rds/scRNAsubE_anno.rds")
+```
+
+```{r}
+scRNAsubM$cell_type <- factor(scRNAsubM$cell_type, levels = order_Mye)
+scRNAsubM$disease <- factor(scRNAsubM$disease, levels = order_disease)
+
+scRNAsubE$cell_type <- factor(scRNAsubE$cell_type, levels = order_epi)
+scRNAsubE$disease <- factor(scRNAsubE$disease, levels = order_disease)
+```
+
+# s6a Mye featureplot
+```{r}
+scRNAsubM <- SetIdent(scRNAsubM,value = "cell_type")
+DefaultAssay(scRNAsubM) <- "RNA"
+Mye.all.markers <- FindAllMarkers(scRNAsubM, 
+                              only.pos = TRUE, test.use = "MAST",
+                              min.pct = 0.25, logfc.threshold = 0.5)
+Mye.top10 = Mye.all.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
+write.csv(Mye.all.markers, "sTable/s6a_all_markers_Mye_MAST.csv", row.names = F)
+write.csv(Mye.top10, "sTable/s6a_top10_markers_Mye_MAST.csv", row.names = F)
+```
+
+```{r}
+#plot featureplots
+DefaultAssay(scRNAsubM) <- "RNA"
+markergene <- c("FCN1","TGFB1","S100A8","CCL2","MRC1","CXCL16","CXCL10","LGMN","SPP1","TREM2","CD9","CD163")
+
+plot.list <- lapply(X = markergene, FUN = function(x) {
+    FeaturePlot(scRNAsubM ,cols = beach, features = x, raster = F,order = T)+
+    NoLegend()+
+    theme(axis.title=element_blank(),axis.text=element_blank(),
+          axis.ticks=element_blank(),axis.line=element_blank(),
+          plot.title = element_blank())
+})
+
+p <- wrap_plots(plots = plot.list, nrow=2)    
+ggsave("figS6/s6a_mye_featureplot.png", plot = p, width = 18 , height = 6) 
+
+#plot the legend
+p = FeaturePlot(scRNAsubM,cols = beach, features = "LGMN", raster = F)+
+  theme(legend.text = element_text(size = 12))
+l=as_ggplot(get_legend(p)) 
+ggsave('figS6/s6a_mye_featureplot_Legend.pdf', l)
+```
+
+# s6b prop lung
+```{r}
+lung <- scRNAsubM[,scRNAsubM$sample_type %in% "Lung" & !(scRNAsubM$patient %in% "C2")]
+
+df_tobesummed_main = data.frame(orig.ident = lung$orig.ident, group = lung$disease, 
+                                cell_type = lung$cell_type)
+df_summed_main = df_tobesummed_main %>% group_by(orig.ident, cell_type, group) %>% tally()
+df_summed_main = df_summed_main %>% group_by(orig.ident) %>% mutate(freq = n/sum(n))
+
+stat.test <- df_summed_main%>% group_by(cell_type) %>% wilcox_test(freq ~ group) %>%add_significance()%>% add_xy_position(x = "cell_type")
+
+p = ggboxplot(df_summed_main, x = "cell_type", y = "freq",color = "group", add = "jitter",
+              palette = color_disease,width = 0.6,
+              add.params = list( color = "group", size = 2)) + 
+    ylim(0, 0.9) + 
+    stat_pvalue_manual(stat.test, label = "p.signif",hide.ns =T) +
+    xlab(NULL)+ylab("Mono&Macro Fraction in Lung")+
+    scale_x_discrete(labels = c("Mono_CD14","Mono_CD14_CD16","Mono_CD16",
+               "tMDM_CCL2","tMDM_FMN1","MDM_CCL18","AM_FABP4"))+
+    theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,
+                                     colour = c("black","black","black","#b2182b",
+                                                "black","#b2182b","black")),
+          plot.title = element_text(hjust = 0.5),legend.position = "top",
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 14),
+          legend.title = element_text(size = 14),
+          legend.text = element_text(size = 12))
+ggsave("figS6/s6b_Mye_box_prop_celltype_main.pdf", plot = p, width = 4 , height = 4)
+```
+
+# s6c cellchat bubble tMDM & T8
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_T8.rds")
+
+pdf("figS6/s6c_cellchat_MDM&T8_bubble.pdf", width=2.5, height=3.1)
+netVisual_bubble(cellchat, sources.use = 9,font.size = 6,
+                 targets.use = c(1:8), remove.isolate = FALSE,angle.x = 45)+NoLegend()
+dev.off()
+```
+
+# s6d cellchat bubble tMDM & T4
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_T4.rds")
+
+pdf("figS6/s6d_cellchat_MDM&T4_bubble.pdf", width=2.6, height=3.1)
+netVisual_bubble(cellchat, sources.use = 10, font.size = 6,
+                 targets.use = c(1:9), remove.isolate = FALSE,angle.x = 45)+ NoLegend()
+dev.off()
+
+pdf("figS6/s6d_cellchat_MDM&T4_bubble_legend.pdf", width=2.6, height=3.1)
+netVisual_bubble(cellchat, sources.use = 10, 
+                 targets.use = c(1:9), remove.isolate = FALSE,angle.x = 45)
+dev.off()
+```
+
+# s6e cellchat bubble tMDM & BP
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_B&P.rds")
+
+pdf("figS6/s6e_cellchat_MDM&B_bubble.pdf", width=2.7, height=3.1)
+netVisual_bubble(cellchat, sources.use = 10,font.size = 6,
+                 targets.use = c(1:9), remove.isolate = FALSE,angle.x = 45)+NoLegend()
+dev.off()
+```
+
+# s6f cellchat bubble AM & mono
+```{r}
+cellchat <- readRDS("cellchat/cellchat_Mono&Macro.rds")
+
+cellchat <- setIdent(cellchat, ident.use = "cellchat", 
+                     levels = c("Mono_CD14","Mono_CD14_CD16","Mono_CD16","tMDM_CCL2",
+                                "tMDM_FMN1","MDM_CCL18","AM_FABP4"))
+
+pdf("figS6/s6f_cellchat_AM&mono_bubble.pdf", width=4.2, height=1.8)
+netVisual_bubble(cellchat, sources.use = 7, font.size = 6,
+                 targets.use = c(1:6), remove.isolate = FALSE,angle.x = 45)+NoLegend()+coord_flip()
+dev.off()
+
+```
+
+# s6g epi dotplot
+```{r}
+scRNAsubE <- SetIdent(scRNAsubE,value = "cell_type")
+DefaultAssay(scRNAsubE) <- "RNA"
+Epi.all.markers <- FindAllMarkers(scRNAsubE, 
+                              only.pos = TRUE, test.use = "MAST",
+                              min.pct = 0.25, logfc.threshold = 0.5)
+Epi.top10 = Epi.all.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
+write.csv(Epi.all.markers, "sTable/s6g_all_markers_Epi_MAST.csv", row.names = F)
+write.csv(Epi.top10, "sTable/s6g_top10_markers_Epi_MAST.csv", row.names = F)
+```
+
+```{r}
+epi_genelist = c("CAV1","AGER","KRT7","GPRC5A", #AT1
+                 "SFTPC","SFTPA1","SFTPA2","SFTPD", #AT2
+                 "VIM","DCN","FBLN1","MGP",#"EMT_Epi"
+                 "CDHR3","CAPS","ECRG4","RP1","FOXJ1",#"Ciliated cells"
+                 "BPIFB1","SCGB1A1","CCNO","SCGB3A1",#"Tuft cells"
+                 "ATP11A","ZNF385B","ACOXL","AFF3",#"Club cells"
+                 "RIMS1","MUC5B", "MUC5AC", "SPDEF",#"Goblet cells"
+                 "HP","ITLN1","PRG4","PLA2G2A"#"Mesothelial cells"
+             )
+
+DefaultAssay(scRNAsubE) <- "RNA"
+scRNAsubE@active.ident <- factor(scRNAsubE@active.ident, levels = order_epi)
+
+p = DotPlot(scRNAsubE, features = epi_genelist,cols = "RdBu") +
+    theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 1,size = 12),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.position = "top",
+        legend.key.size = unit(0.15,"in")) +
+    xlab(NULL) + ylab(NULL)
+
+ggsave('figS6/s6g_EPI_dotplot.pdf', p, width =8.4, height = 3.6)
+```
+
+# s6h cellchat bubble ciliated & mono
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-ciliated_mono&macro.rds")
+
+pdf("figS6/s6h_cellchat_ciliated&mono_bubble_legend.pdf", width=4, height=5)
+netVisual_bubble(cellchat, sources.use = 8, 
+                 targets.use = c(1:7), remove.isolate = FALSE,angle.x = 45)
+dev.off()
+```
+
+```{r}
+pdf("figS6/s6h_cellchat_ciliated&mono_bubble.pdf", width=2, height=3.5)
+netVisual_bubble(cellchat, sources.use = 8, font.size = 6,
+                 targets.use = c(1:7), remove.isolate = FALSE,angle.x = 45)+NoLegend()
+dev.off()
+```
+
+
+# s6i cellchat bubble ciliated & PB
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-ciliated_B&P.rds")
+
+pdf("figS6/s6i_cellchat_ciliated&B_bubble.pdf", width=2.5, height=1.8)
+netVisual_bubble(cellchat, sources.use = 10, font.size = 6,
+                 targets.use = c(1:9), remove.isolate = FALSE,angle.x = 45)+NoLegend()+coord_flip()
+dev.off()
+```
+
+# s6j cellchat ciliated & PB CCL28-CCR10
+```{r}
+DefaultAssay(scRNAsubE) <- "RNA"
+p = FeaturePlot(scRNAsubE,features="CCL28",cols = beach,raster = F,order= T,pt.size = 3) + NoLegend()+
+    theme_blank
+ggsave("figS6/s6j_EPI_featureplot_CCL28.png", p, width = 5,height = 5)
+
+p = FeaturePlot(scRNAsubE,features="CCL28",cols = beach,raster = F,order= T)
+l =as_ggplot(get_legend(p)) 
+ggsave("figS6/s6j_EPI_featureplot_legend.pdf",l)
+```
+
+```{r}
+netAnalysis_contribution(cellchat, signaling = "CCL")
+pairLR.CCL <- extractEnrichedLR(cellchat, signaling = "CCL", geneLR.return = FALSE)
+LR.show <- pairLR.CCL[1,]
+
+svglite(file = "figS6/s6j_ciliate&BP_cellchat_CCL28-CCR10.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CCL", pairLR.use = LR.show, layout = "circle",
+                     color.use = c(color_B_main,"#90CAF9"),sources.use = "BALF Ciliated Epi")
+
+dev.off()
+```
+
+# s6k cellchat bubble ciliated & T8
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-ciliated_T8.rds")
+
+pdf("figS6/s6k_cellchat_ciliated&T8_bubble.pdf", width=2.5, height=1.8)
+netVisual_bubble(cellchat, sources.use = 9, font.size = 6,
+                 targets.use = c(1:8), remove.isolate = FALSE,angle.x = 45)+NoLegend()+coord_flip()
+dev.off()
+```
+
+# s6l cellchat ciliated & T8
+## CXCL16-CXCR6
+```{r}
+pathways.show <- "CXCL" 
+pairLR.CXCL <- extractEnrichedLR(cellchat, signaling = pathways.show, geneLR.return = FALSE)
+netAnalysis_contribution(cellchat, signaling = pathways.show)
+LR.show <- pairLR.CXCL[1,] 
+
+svglite(file = "figS6/s6l_cellchat_ciliated&T8_CXCL16-CXCR6.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = pathways.show, pairLR.use = LR.show, layout = "circle",
+                     color.use = c(color_T8_main,"#90CAF9"))
+dev.off()
+```
+
+## CCL15-CCR1
+```{r}
+pathways.show <- "CCL" 
+pairLR.CCL <- extractEnrichedLR(cellchat, signaling = pathways.show, geneLR.return = FALSE)
+netAnalysis_contribution(cellchat, signaling = pathways.show)
+LR.show <- pairLR.CCL[3,] # show one ligand-receptor pair
+
+svglite(file = "figS6/s6l_cellchat_ciliated&T8_CCL15-CCR1.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = pathways.show, pairLR.use = LR.show, layout = "circle",
+                     color.use = c(color_T8_main,"#90CAF9"))
+dev.off()
+```
+

@@ -1,0 +1,550 @@
+---
+title: "Figure 3"
+author: "YueanZhao"
+output: html_document
+---
+
+```{r}
+scRNAsubT8 <- readRDS("rds/scRNAsubT8_anno_TCRpercent_Cycling.NoCD4.rds")
+DefaultAssay(scRNAsubT8) <- "RNA"
+
+scRNAsubT8$cell_type_main <- factor(scRNAsubT8$cell_type_main, levels =order_T8_main)
+scRNAsubT8$TCR_clonetype <- factor(scRNAsubT8$TCR_clonetype, levels =order_TCR_clonetype)
+scRNAsubT8$disease <- factor(scRNAsubT8$disease,levels = order_disease)
+scRNAsubT8$patient <- factor(scRNAsubT8$patient,levels = order_patientID)
+
+```
+
+# fig3a: clonetype expansion dimplot
+
+```{r}
+scRNA <- scRNAsubT8[,scRNAsubT8$patient != "C2"]
+md <- cbind(Embeddings(scRNA[["umap"]]),scRNA[["TCR_clonetype"]],scRNA[["disease"]])
+
+p = ggplot(md[!is.na(md$TCR_clonetype),], 
+           aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"))+
+  geom_point(data = md[is.na(md$TCR_clonetype) & md$disease == "Pneumonia",], color = "lightgrey", size = 1)  + 
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Pneumonia",],shape = 16,size = 1,alpha = 0.8)  +
+  scale_color_manual(values = color_TCR_clonetype_disease)+
+  labs(colour = "Pneumonia")+
+  theme_cowplot()+
+  theme_blank+NoLegend()
+
+ggsave("fig3/3a_DimPlot_T8_clonetype_disease.png",p, width = 5, height = 5)
+```
+
+
+```{r}
+p = ggplot(md[!is.na(md$TCR_clonetype),], 
+           aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"))+
+  geom_point(data = md[is.na(md$TCR_clonetype) & md$disease == "Ctrl",], color = "lightgrey", size = 1)  +
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Ctrl",],
+             aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"),
+             shape = 16,size = 1,alpha = 0.8) +
+  scale_color_manual(values = color_TCR_clonetype_ctrl)+
+  labs(colour = "ctrl")+
+  theme_cowplot()+
+  theme_blank+NoLegend()
+ggsave("fig3/3a_DimPlot_T8_clonetype_ctrl.png",p, width = 5, height = 5)
+```
+
+```{r}
+scRNA <- scRNAsubT8[,scRNAsubT8$patient != "C2"]
+md <- cbind(Embeddings(scRNA[["umap"]]),scRNA[["TCR_clonetype"]],scRNA[["disease"]])
+
+p = ggplot(md[!is.na(md$TCR_clonetype),], 
+           aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"))+
+  geom_point(data = md[is.na(md$TCR_clonetype),], color = "lightgrey", size = 1)  + 
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Pneumonia",],shape = 16,size = 1,alpha = 0.8)  +
+  scale_color_manual(values = color_TCR_clonetype_disease)+
+  labs(colour = "Pneumonia")+ new_scale("color") + 
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Ctrl",],
+             aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"),
+             shape = 16,size = 1,alpha = 0.8) +
+  scale_color_manual(values = color_TCR_clonetype_ctrl)+
+  labs(colour = "ctrl")+
+  theme_cowplot()+
+  theme_blank+NoLegend()
+
+ggsave("fig3/3a_DimPlot_T8_clonetype_merge.png",p, width = 5, height = 5)
+```
+
+```{r}
+p = ggplot(md[!is.na(md$TCR_clonetype),], 
+           aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"))+
+  geom_point(data = md[is.na(md$TCR_clonetype) & md$disease == "Pneumonia",], color = "lightgrey", size = 1)  + 
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Pneumonia",],shape = 16,size = 1,alpha = 0.8)  +
+  scale_color_manual(values = color_TCR_clonetype_disease)+
+  labs(colour = "Pneumonia")+new_scale("color")+
+  geom_point(data = md[!is.na(md$TCR_clonetype) & md$disease == "Ctrl",],
+             aes_string(x = "UMAP_1", y = "UMAP_2", color = "TCR_clonetype"),
+             shape = 16,size = 1,alpha = 0.8) +
+  scale_color_manual(values = color_TCR_clonetype_ctrl)+
+  labs(colour = "Ctrl")+
+  theme_cowplot()+
+  theme_blank
+l=as_ggplot(get_legend(p)) 
+ggsave('fig3/3a_DimPlot_T8_clonetype_legend.pdf', l)
+```
+
+# fig3b: clonetype expansion
+```{r}
+scRNA <- scRNAsubT8[,scRNAsubT8$patient != "C2"]
+clusters <- data.frame(table(scRNA$TCR_clonetype, scRNA$disease,scRNA$cell_type_main))
+colnames(clusters)[1:3]<- c("TCR_clonetype","group","cell_type")
+clusters <- clusters[order(clusters$cell_type,clusters$group,clusters$TCR_clonetype),]
+
+p = ggplot(clusters) + 
+  geom_bar(data = clusters[clusters$group == "Pneumonia",],
+           aes(x =cell_type, y= Freq, fill = TCR_clonetype, group = group),
+           position ="stack",stat = "identity",width = 0.4,just = 1) + 
+  scale_fill_manual(values=c("#FFC30F", "#FF5744", "#C70039", "#900C3F", "#581845"),
+                    breaks = rev(order_TCR_clonetype))+
+  labs(fill = "Pneumonia")+new_scale("fill")+
+  geom_bar(data = clusters[clusters$group == "Ctrl",],
+           aes(x =cell_type, y= Freq, fill = TCR_clonetype, group = group),
+           position ="stack",stat = "identity",width = 0.4,just = 0) + 
+  scale_fill_manual(values=c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5"),
+                    breaks = rev(order_TCR_clonetype))+
+  labs(fill = "Ctrl")+
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,size = rel(1)),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))+
+  scale_y_continuous(expand = c(0,0))+
+  coord_cartesian(ylim = c(0, 5100))
+
+ggsave("fig3/3b_T8_clonetype_stackbar.pdf",p,width = 8, height = 5)
+```
+
+# fig3c tcr transition index
+```{r}
+meta <- scRNAsubT8@meta.data
+meta$Cell_Name <- rownames(meta)
+meta$clone.id <- meta$TCR_ID
+meta$majorCluster <- meta$cell_type_main
+meta$loc <- meta$sample_type
+meta <- subset(meta, meta$clone.id != "NA")
+tic("Startrac.run")
+out <- Startrac.run(meta, proj="T8",verbose=F)
+toc()
+
+df = out@pIndex.tran
+df <- subset(df, df$aid == "T8")
+rownames(df) <- df$majorCluster
+df$aid <- NULL
+df$majorCluster <- NULL
+df <- myfill(df)
+p = Heatmap(df,name = "pIndex.tran", column_names_rot = 45,
+        col=colorRampPalette(rev(brewer.pal(n = 7, name ="RdBu")))(100),
+        heatmap_legend_param = list(labels_gp = gpar(font = 16),direction = "vertical"),
+        width = unit(2.5, "in"), height = unit(2.5, "in"),
+        column_names_gp = gpar(fontsize = 14),row_names_gp = gpar(fontsize = 14))
+pdf("fig3/3c_transition_index.pdf",width = 5,height = 4)
+draw(p)
+dev.off()
+```
+
+# fig3d: TCR heatmap (group:disease) 
+## TCR top10
+```{r}
+TCR_top10 = as.data.frame(table(scRNAsubT8[,scRNAsubT8$bchain_ID_sample <= 10 & 
+                                          scRNAsubT8$sample_type %in% "Lung" & 
+                                          scRNAsubT8$disease %in% "Pneumonia"]$TCR_ID))$Var1
+
+scRNA_top10 <- scRNAsubT8[,scRNAsubT8$TCR_ID %in% TCR_top10]
+```
+
+## disease heatmap
+### matrix
+```{r}
+mat <- scRNAsubT8@meta.data[,c("sample_type","TCR_ID","TCR_percent","group")]
+mat <- mat %>% drop_na()
+mat <- mat[!duplicated(mat),]
+mat <- subset(mat, mat$TCR_ID %in% TCR_top10 )
+mat$TCR_percent <- mat$TCR_percent*100
+```
+
+```{r}
+mat1 <- mat %>% mutate(log_percent = log10(TCR_percent+1))
+mat1 <- dplyr::select(mat1,-3)
+```
+
+```{r}
+mat_cycling <- mat1
+```
+
+```{r}
+mat1 <- dcast(mat1,TCR_ID~sample_type, value.var = "log_percent")
+rownames(mat1) <- mat1[,1]
+mat1 <- mat1[,-1]  
+```
+
+```{r}
+myfill <- function(df){
+  df2 <- df %>%
+    mutate(across(where(is.character),function(x){ replace(x,is.na(x),"0")})) %>%
+    mutate(across(where(is.numeric),function(x) {replace(x,is.na(x),0)}))
+  return(df2)
+}
+```
+
+```{r}
+mat1 <- myfill(mat1)
+```
+
+### annotation
+```{r}
+df <- scRNAsubT8@meta.data[,c("TCR_ID","patient")]%>% drop_na()
+df <- df[!duplicated(df),]
+df <- subset(df, df$TCR_ID %in% TCR_top10)%>% dplyr::arrange(TCR_ID)
+rownames(df) <- df[,1]
+df$patient <- factor(df$patient,levels = c("P2","P3","P4","P5","P6","P7","P8","P9","P10","P11","P12"))
+
+color_cluster <- c("#ED7216","#BFDB38","#1F8A70")
+
+la <- rowAnnotation(cluster = anno_block(width = unit(5, "mm"),
+                                          gp = gpar(fill = color_cluster,col=NA),
+                                          labels =c("pattern 1a", "pattern 1b", "pattern 2"), 
+                                          labels_gp = gpar(col = "white", 
+                                                           fontsize = 12,
+                                                           fontface = "bold")),
+                    patientID = df$patient, 
+                    col = list(patientID = color_patientID),
+                    simple_anno_size = unit(4, "mm"),
+                    annotation_legend_param = list(patientID = list(labels_gp = gpar(fontsize = 12),
+                                                                    title_gp = gpar(fontsize = 13,
+                                                                                    face = "bold"))))
+```
+
+### cycling label
+```{r}
+cycling <- scRNAsubT8@meta.data[,c("TCR_ID","group","sample_type","cell_type_T8")]%>% drop_na()
+cycling <- subset(cycling, cycling$TCR_ID %in% TCR_top10 & 
+                    cell_type_T8 %in% "Cycling" )%>% dplyr::arrange(TCR_ID)
+cycling <- cycling[!duplicated(cycling),]
+cycling$cycling <- "*"
+
+cycling <- tidyr::unite(cycling,"matchID","TCR_ID","sample_type",sep="_",remove=FALSE)
+mat_cycling <- tidyr::unite(mat_cycling,"matchID","TCR_ID","sample_type",sep="_",remove=FALSE)
+
+mat_cycling$cycling <- cycling$cycling[match(mat_cycling$matchID, cycling$matchID)]
+
+mat_cycling <- dcast(mat_cycling,TCR_ID~sample_type, value.var = "cycling")
+rownames(mat_cycling) <- mat_cycling[,1]
+mat_cycling <- mat_cycling[,-1]  
+```
+
+### heatmap
+```{r}
+set.seed(200)
+p = Heatmap(mat1, name = "lg(TCR%+1)", 
+                         cluster_rows = T, cluster_columns = FALSE,na_col = 'grey',
+                         row_km = 3,
+                         column_names_gp = gpar(fontsize = 14),
+                         column_title = "TCR abundance heatmap",
+                         left_annotation = la,
+                         show_row_names = F,clustering_method_rows = "complete",
+                         col=colorRampPalette(rev(brewer.pal(n = 7, name ="RdYlBu")))(100),
+                         heatmap_legend_param = list(labels_gp = gpar(fontsize = 12),
+                                                     direction = "vertical",
+                                                     title_gp = gpar(fontsize = 13,face = "bold")),
+                         cell_fun = function(j, i, x, y, width, height, fill) {
+                           if(mat_cycling[i, j] %in% "*")
+                             grid.text(sprintf(mat_cycling[i, j]), x, y, gp = gpar(fontsize = 5))}) 
+
+
+  pdf("fig3/3d_Top10_lung_heatmap_disease_complete.pdf",width=4,height=10)
+  draw(p)
+  dev.off()
+```
+
+# fig3e:TCR highlight Density (group:disease) 
+```{r}
+set.seed(200)
+rcl.list <- row_order(p)
+```
+
+```{r}
+TCRID_clus <- list()
+meta_highlight <- list()
+barcodes <- list()
+TCR_cells <- list()
+for(i in 1:length(rcl.list)){
+TCRID_clus[[i]] <- rownames(mat1[rcl.list[[i]],])
+
+meta_highlight[[i]] <- scRNAsubT8[,scRNAsubT8$TCR_ID %in%  TCRID_clus[[i]]]@meta.data
+barcodes[[i]] <- rownames(meta_highlight[[i]])
+TCR_cells[[i]] <- as.data.frame(cbind(as.character(meta_highlight[[i]][["TCR_ID"]]),barcodes[[i]]))}
+
+meta <- scRNAsubT8@meta.data
+for(i in 1:length(rcl.list)){
+highlight_TCR <- TCR_cells[[i]]$V1[match(rownames(meta), TCR_cells[[i]]$V2)]
+meta[ , ncol(meta) + 1] <- highlight_TCR
+colnames(meta)[ncol(meta)] <- paste0("highlight_TCR_clus", i)}
+
+meta <- meta %>% dplyr::select(starts_with("highlight_TCR_clus"))
+md <- cbind(meta,Embeddings(scRNAsubT8[["umap"]]),scRNAsubT8[["sample_type"]])
+
+getPalette = colorRampPalette(brewer.pal(10, "Paired"))
+```
+
+```{r}
+plot.list <- list()
+for (i in 1:length(rcl.list)){
+  plot.list[[i]] = ggplot(md[!is.na(md[i]),], 
+                          aes_string(x = "UMAP_1", y = "UMAP_2"))+
+    geom_point(data = md[is.na(md[i]),], color = "lightgrey", size = 1)  + 
+    geom_pointdensity(adjust= 0.5) +
+    facet_wrap(~sample_type)+
+    scale_color_gradientn(colors = rev( c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    guides(col = guide_legend(ncol = 1))+
+    theme_cowplot()+
+    theme_blank+
+    theme(strip.background = element_blank(),
+          strip.text = element_blank())+
+    NoLegend()
+  
+    ggsave(paste("fig3/3e_DimDensity_TCR_disease_clus",i,".png",sep = ""),plot.list[[i]],width = 12, height = 4)
+}
+```
+
+```{r}
+plot.list <- list()
+for (i in 1:length(rcl.list)){
+  plot.list[[i]] = ggplot(md[!is.na(md[i]),], 
+                          aes_string(x = "UMAP_1", y = "UMAP_2"))+
+    geom_point(data = md[is.na(md[i]),], color = "lightgrey", size = 1)  + 
+    geom_pointdensity(adjust= 0.5) +
+    facet_wrap(~sample_type)+
+    scale_color_gradientn(colors = rev( c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    theme(legend.title = element_text(size = 16), legend.text = element_text(size = 14))
+}
+l.list <- list()
+for (i in 1:length(rcl.list)){
+  l.list[[i]]=as_ggplot(get_legend(plot.list[[i]])) 
+  ggsave(paste("fig3/3e_DimDensity_TCR_disease_clus",i,"_legend.pdf",sep = ""),l.list[[i]])}
+```
+
+# fig3f: pattern cell type stacked barplot
+```{r}
+TCRID_clus_group1 <- rownames(mat1[rcl.list[[1]],])
+TCRID_clus_group2 <- rownames(mat1[rcl.list[[2]],])
+TCRID_clus_group3 <- rownames(mat1[rcl.list[[3]],])
+
+disease_pattern <- scRNAsubT8[,scRNAsubT8$TCR_ID %in% c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3)]
+
+df <- as.data.frame(cbind(c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3),
+                          rep(c("pattern 1a","pattern 1b","pattern 2"),
+                              c(length(TCRID_clus_group1),
+                                length(TCRID_clus_group2),
+                                length(TCRID_clus_group3)))))
+
+disease_pattern$pattern <- df$V2[match(disease_pattern$TCR_ID, df$V1)]
+saveRDS(disease_pattern, "rds/T8_disease_TCRpattern.rds")
+```
+
+```{r}
+clusters <- data.frame(table(disease_pattern$cell_type_main, disease_pattern$pattern))
+colnames(clusters)[[2]]<-"pattern"
+colnames(clusters)[[1]]<-"cell_type"
+
+
+p =ggplot(clusters) + 
+  geom_bar(aes(x =pattern, y= Freq, fill = cell_type),stat = "identity",width = 0.7)+ 
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  scale_fill_manual(values=color_T8_main, limits = order_T8_main)+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,size = rel(1)),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))+
+  scale_y_continuous(expand = c(0,0))
+ggsave("fig3/3f_pattern_celltype_stackedBar.pdf",p,width = 4, height = 5)
+```
+
+# fig3g: clonetype migration (group:disease) 
+```{r}
+disease <- scRNAsubT8[,scRNAsubT8$disease %in% "Pneumonia"]
+
+metadata <- disease@meta.data
+da.tcr.st1 <- metadata %>% 
+  ungroup() %>% 
+  mutate(Cell_Name=rownames(metadata), 
+         clone.id = metadata$TCR_ID, 
+         majorCluster=metadata$cell_type_main, 
+         loc=metadata$sample_type) %>%
+  dplyr::select(Cell_Name,clone.id,patient,majorCluster,loc,group,patient) %>% 
+  as.data.frame()
+da.tcr.st2 <- na.omit(da.tcr.st1)
+```
+
+```{r}
+obj <- new("Startrac",da.tcr.st2,aid="T8cell")
+obj <- calIndex(obj)
+clus.data = obj@cluster.data
+
+tic("pIndex")
+obj <- pIndex(obj)
+toc()
+
+df.migr <- obj@pIndex.migr
+df.migr <- df.migr[,-1]
+rownames(df.migr)=df.migr[,1]
+df.migr=df.migr[,-1]
+df.migr <- as.data.frame(df.migr)
+
+#gather()函数将宽格式转化为长格式
+#df.migr为需要转的数据集名,migr为原数据列名的新列名,value为值的新列名
+df.migr.2 <-gather(df.migr, migr, value, 1:3)
+df.migr.2$majorCluster <- rep(rownames(df.migr),3)
+
+
+df.migr.2$majorCluster<- factor(df.migr.2$majorCluster, levels =order_T8_main)
+df.migr.2 <- subset(df.migr.2,df.migr.2$majorCluster != "T8_naive")
+# no break
+p = ggplot(df.migr.2, aes(x=majorCluster, y=value, fill=migr)) +
+    geom_bar(stat="identity", position=position_dodge(), width=.8)+
+    scale_y_continuous(expand=c(0,0))+
+    coord_cartesian(ylim = c(0, 0.75))+
+    theme_cowplot()+
+    theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+           axis.text = element_text(size = 16),
+           axis.title = element_text(size = 16),
+           legend.title = element_text(size = 16),
+           legend.text = element_text(size = 14),
+           legend.position = c(0.1,0.8),legend.direction = "vertical")+
+    scale_fill_manual(values=color_migr)+
+    xlab(NULL)+ylab("T8 TCR migration index")
+
+ggsave("fig3/3g_migration_celltype.pdf",p,width = 5, height = 5)
+```
+
+# fig3h singleR schema
+# singleR defined ctrl pattern
+## ref and query data
+```{r}
+TCRID_clus_group1 <- rownames(mat1[rcl.list[[1]],])
+TCRID_clus_group2 <- rownames(mat1[rcl.list[[2]],])
+TCRID_clus_group3 <- rownames(mat1[rcl.list[[3]],])
+
+lung_disease <- scRNAsubT8[,scRNAsubT8$sample_type %in% "Lung" & scRNAsubT8$disease %in% "Pneumonia"]
+lung_disease <- lung_disease[,lung_disease$TCR_ID %in% c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3)]
+
+df <- as.data.frame(cbind(c(TCRID_clus_group1,TCRID_clus_group2,TCRID_clus_group3),
+                          rep(c("pattern1a","pattern1b","pattern2"),
+                              c(length(TCRID_clus_group1),
+                                length(TCRID_clus_group2),
+                                length(TCRID_clus_group3)))))
+
+lung_disease$pattern <- df$V2[match(lung_disease$TCR_ID, df$V1)]
+reference <-lung_disease
+```
+
+```{r}
+lung_ctrl <- scRNAsubT8[,scRNAsubT8$sample_type %in% "Lung" & scRNAsubT8$disease %in% "Ctrl" &
+                        !(scRNAsubT8$patient %in% "C2")]
+lung_ctrl <- lung_ctrl[,lung_ctrl$freq_bchain_sample > 5]
+query <- lung_ctrl
+```
+
+```{r}
+reference_count=reference[["RNA"]]@counts
+reference[['Index']] <- rownames(reference@meta.data)
+pdata=reference@meta.data[,c("Index","pattern")]
+rownames(pdata)=pdata$Index
+pdata$Index=NULL
+colnames(pdata)="pattern"
+reference_SE <- SummarizedExperiment(assays=list(counts=reference_count),colData = pdata) 
+reference_SE <- scuttle::logNormCounts(reference_SE)
+```
+
+
+```{r}
+query_count=query[["RNA"]]@counts
+
+common_gene <- intersect(rownames(query_count), rownames(reference_SE))
+reference_SE <- reference_SE[common_gene,]
+query_count <- query_count[common_gene,]
+
+query_SE <- SummarizedExperiment(assays=list(counts=query_count))
+query_SE <- scuttle::logNormCounts(query_SE)
+```
+
+## singleR
+```{r}
+singleR_res <- SingleR(test = query_SE, ref = reference_SE, labels = reference_SE$pattern)
+
+anno_df <- as.data.frame(singleR_res$labels)
+anno_df$Index <- rownames(singleR_res)
+colnames(anno_df)[1] <- 'ref_label_from_ref'
+
+query[['Index']] <- rownames(query@meta.data)
+query$pattern <- anno_df$ref_label_from_ref[match(rownames(query@meta.data), anno_df$Index)]
+```
+
+## fig3i: singleR heatmap
+```{r}
+annoCol<-list(Labels=color_pattern)
+p = plotScoreHeatmap(singleR_res,annotation_colors = annoCol)
+ggsave("fig3/3i_singleR_heatmap.pdf",p,width = 5,height = 2)
+```
+
+## fig3j :singleR ctrl pattern
+```{r}
+ctrl_lung <- scRNAsubT8[,scRNAsubT8$disease %in% "Ctrl" & scRNAsubT8$sample_type %in% "Lung" & 
+                        !(scRNAsubT8$patient %in% "C2")]
+ctrl_lung[["pattern"]] <- NA
+ctrl_lung$pattern <- anno_df$ref_label_from_ref[match(rownames(ctrl_lung@meta.data), anno_df$Index)]
+```
+
+```{r}
+md <- cbind(ctrl_lung[["sample_type"]], ctrl_lung[["pattern"]],Embeddings(ctrl_lung[["umap"]]))
+md$pattern <- factor(md$pattern, levels = order_pattern)
+
+p = ggplot(md[!is.na(md$pattern),], aes(x = UMAP_1, y = UMAP_2, color = pattern))+
+  geom_point(data = md[is.na(md$pattern),], color = "lightgrey", size = 1)  + 
+  geom_point(shape = 16,size = 1.5,alpha = 1)  +
+  guides(col = guide_legend(ncol = 1))+
+  scale_color_manual(values =color_pattern)+
+  theme_cowplot()+theme_blank + NoLegend()
+ggsave("fig3/3j_singleR_DimPlot_ctrl_lung_origpattern.png",p,width = 5, height = 5)
+```
+
+```{r}
+p = ggplot(md[!is.na(md$pattern),], aes(x = UMAP_1, y = UMAP_2, color = pattern))+
+  geom_point(data = md[is.na(md$pattern),], color = "lightgrey", size = 1)  + 
+  geom_point(shape = 16,size = 1.5,alpha = 1)  +
+  guides(col = guide_legend(ncol = 1))+
+  scale_color_manual(values =color_pattern)+
+  theme_cowplot()+theme_blank
+l=as_ggplot(get_legend(p)) 
+ggsave('fig3/3j_singleR_DimPlot_ctrl_lung_origpattern_legend.pdf', l)
+```
+
+## fig3j: ctrl lung pattern bar
+```{r}
+clusters <- data.frame(table(ctrl_lung$pattern, ctrl_lung$sample_type))
+colnames(clusters)[1:3]<- c("pattern","sample_type","Freq")
+
+p = ggplot(clusters) + 
+  geom_bar(aes(x =pattern, y= Freq, fill = pattern),
+           position ="dodge",stat = "identity",width = 0.5) + 
+  scale_fill_manual(values=color_pattern)+
+  geom_text(data = clusters , aes(x = pattern, y=Freq, label=Freq),
+            vjust= -0.5,fontface = "plain", family = "sans")+
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  ylim(0,2500)+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))+
+  NoLegend()
+ggsave("fig3/3j_ctrllung_pattern_stackbar.pdf",p,width = 2.5, height = 4)
+```

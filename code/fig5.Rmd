@@ -1,0 +1,301 @@
+---
+title: "Figure 5"
+author: "YueanZhao"
+output: html_document
+---
+```{r}
+rm(list = ls())
+gc()
+```
+
+```{r}
+scRNAsubB <- readRDS("rds/scRNAsubB_anno_BCR.rds")
+DefaultAssay(scRNAsubB) <- "RNA"
+```
+
+```{r}
+scRNAsubB$cell_type_B <- factor(scRNAsubB$cell_type_B, levels = order_B)
+scRNAsubB$cell_type_main <- factor(scRNAsubB$cell_type_main, levels = order_B_main)
+scRNAsubB$isotype <- factor(scRNAsubB$isotype, levels = order_isotype)
+scRNAsubB$BCR_clonetype <- factor(scRNAsubB$BCR_clonetype, levels = order_BCR_clonetype)
+scRNAsubB$disease <- factor(scRNAsubB$disease, levels = order_disease)
+```
+
+
+# fig5a dimplot
+```{r}
+p = DimPlot(scRNAsubB, group.by = "cell_type_B",cols = color_B,label = F) + 
+    theme_cowplot() + theme_blank + NoLegend()
+ggsave("fig5/5a_DimPlot_celltype.png",p, width = 5, height = 5)
+```
+
+```{r}
+p = DimPlot(scRNAsubB, group.by = "cell_type_B",cols = color_B,label = F) 
+l =as_ggplot(get_legend(p)) 
+ggsave("fig5/5a_DimPlot_celltype_legend.pdf",l)
+```
+
+# fig5b density facet disease
+```{r}
+scRNAsub <- scRNAsubB[,!(scRNAsubB$patient %in% "C2")]
+
+umap = scRNAsub@reductions$umap@cell.embeddings %>% 
+       as.data.frame() %>% 
+       cbind(group = scRNAsub@meta.data$disease)
+
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~group, nrow = 2) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = rev(c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    theme_cowplot() + 
+    theme(axis.title=element_blank(),axis.text=element_blank(),
+                     axis.ticks=element_blank(),axis.line=element_blank(),
+                     plot.title=element_text(hjust = 0.5),
+          strip.text = element_blank(),strip.background = element_blank())+
+    NoLegend()
+
+ggsave("fig5/5b_density_disease.png",p,width = 4, height = 8)
+```
+
+```{r}
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~group, nrow = 1) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = rev(  c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))
+
+l =as_ggplot(get_legend(p)) 
+ggsave("fig5/5b_density_disease_legend.pdf",l)
+```
+
+# fig5c prop box plasma
+```{r}
+df_tobesummed_main = data.frame(patient = scRNAsub$patient, group = scRNAsub$disease, 
+                                cell_type = scRNAsub$cell_type_B)
+df_summed_main = df_tobesummed_main %>% group_by(patient, cell_type, group) %>% tally()
+df_summed_main = df_summed_main %>% group_by(patient) %>% mutate(freq = n/sum(n))
+
+stat.test <- df_summed_main%>% group_by(cell_type) %>% wilcox_test(freq ~ group) %>%add_significance()%>% add_xy_position(x = "cell_type")
+
+p = ggboxplot(df_summed_main, x = "cell_type", y = "freq",color = "group", add = "jitter",
+              palette = color_disease,width = 0.7,
+              add.params = list( color = "group", size = 2)) + 
+  ylim(0, 0.65) + 
+  stat_pvalue_manual(stat.test, label = "p.signif",hide.ns =T) +
+  xlab(NULL)+ylab("Fraction of B & Plasma cells")+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,
+                                 color = c(rep(c("black","#b2182b"),c(6,2)),"black","#b2182b")),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+      legend.position = "top")
+ggsave("fig5/5c_box_prop_celltype.pdf", plot = p, width = 6 , height = 5)
+```
+
+# fig5d disease split sample type
+```{r}
+disease <- scRNAsubB[,scRNAsubB$disease %in% "Pneumonia"]
+```
+
+```{r}
+p = DimPlot(disease, group.by = "cell_type_B",split.by = "sample_type",cols = color_B,label = F,
+            pt.size = 2) + 
+    theme_cowplot() + theme_blank + NoLegend() +
+  theme(strip.text = element_blank(),strip.background = element_blank())
+ggsave("fig5/5d_DimPlot_disease_spilt_sampletype.png",p, width = 12, height = 4)
+```
+
+# fig5e disease pile bar by sampletype
+```{r}
+disease <- scRNAsubB[,scRNAsubB$disease %in% "Pneumonia"]
+
+Ratio <- disease@meta.data %>%
+  group_by(sample_type, cell_type_B) %>% 
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+         
+p= ggplot(Ratio,aes(x=sample_type,y= relative_freq,
+                    fill=cell_type_B,stratum=cell_type_B, alluvium=cell_type_B))+
+  geom_col(width = 0.5, color='black',size = 0.25)+
+  xlab(NULL)+ylab("Pneumonia Celltype Percentage")+
+  scale_fill_manual(values =color_B)+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))+
+  geom_flow(width=0.5,alpha=0.4, knot.pos=0.5)
+ggsave("fig5/5e_disease_prop_celltype_sampletype.pdf",p,width = 4, height = 4)
+```
+
+# fig5f clonetype barplot
+
+```{r}
+clusters <- data.frame(table(disease$BCR_clonetype, disease$sample_type,disease$cell_type_main))
+colnames(clusters)[1:3]<- c("clonetype","sample_type","cell_type")
+clusters <- subset(clusters, clonetype %in% c("Small (1 < n <= 5)","Medium (5 < n <= 10)","Large (10 < n <= 100)","Hyperexpanded (n > 100)"))
+clusters$clonetype<- factor(clusters$clonetype, levels = order_BCR_clonetype)
+clusters$cell_type<- factor(clusters$cell_type, levels = order_B_main)
+clusters <- clusters[order(clusters$cell_type,clusters$sample_type,clusters$clonetype),]
+
+p = ggplot(clusters) + 
+    geom_bar(data = clusters[clusters$sample_type == "PBMC",],
+           aes(x =cell_type, y= Freq, fill = clonetype, group = sample_type),
+           position =position_stack(vjust=0),stat = "identity",width = 0.3,just = -1/2) + 
+  scale_fill_manual(values=c("#C7E9C0","#A1D99B","#74C476","#41AB5D"),
+                    breaks = rev(order_BCR_clonetype))+
+  labs(fill = "PBMC")+new_scale("fill")+
+  geom_bar(data = clusters[clusters$sample_type == "Lung",],
+           aes(x =cell_type, y= Freq, fill = clonetype, group = sample_type),
+           position =position_stack(vjust=0),stat = "identity",width = 0.3,just = 1/2) + 
+  scale_fill_manual(values=c("#DADAEB","#BCBDDC","#9E9AC8","#807DBA"),
+                    breaks = rev(order_BCR_clonetype))+
+  labs(fill = "Lung")+new_scale("fill")+
+  geom_bar(data = clusters[clusters$sample_type == "BALF",],
+           aes(x =cell_type, y= Freq, fill = clonetype, group = sample_type),
+           position =position_stack(),stat = "identity",width = 0.3,just = 3/2) + 
+  scale_fill_manual(values=c("#FDD0A2","#FDAE6B","#FD8D3C","#F16913"),
+                    breaks = rev(order_BCR_clonetype))+
+  labs(fill = "BALF")+
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,size = rel(1)),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.key.size = unit(0.1,"in"))+
+  scale_y_continuous(expand = c(0,0))+
+  coord_cartesian(ylim = c(0, 700))
+
+ggsave("fig5/5f_clonetype_disease_sampletype_stackbar.pdf",p,width = 6, height = 4)
+```
+
+# fig5j DimPlot plasma isotype
+
+```{r}
+plasma <- scRNAsubB[,scRNAsubB$cell_type_B %in% c("PC.1","PC.2","PC.3","PB")]
+plasma <- plasma[,plasma$disease == "Pneumonia"]
+md <- cbind(Embeddings(plasma[["umap"]]),plasma[["isotype"]])
+
+p = ggplot(md[!is.na(md$clonetype),], 
+           aes_string(x = "UMAP_1", y = "UMAP_2", color = "isotype"))+
+  geom_point(data = md[is.na(md$isotype),], color = "lightgrey", size = 1)  + 
+  geom_point(data = md[!is.na(md$isotype),],shape = 16,size = 2,alpha = 1)  +
+  scale_color_manual(values = color_isotype)+
+  labs(colour = "isotype")+
+  theme_cowplot()+
+  theme_blank
+
+ggsave("fig5/5j_DimPlot_plasma_disease_isotype.pdf",p, width = 7, height = 4)
+```
+
+# fig5j piled bar cell num
+```{r}
+plasma <- scRNAsubB[,scRNAsubB$cell_type_B %in% c("PC.1","PC.2","PC.3","PB")]
+plasma <- plasma[,plasma$disease == "Pneumonia"]
+plasma$cell_type_B <- factor(plasma$cell_type_B,levels = c("PC.3","PC.2","PC.1","PB"))
+```
+
+
+```{r}
+clusters <- data.frame(table(plasma$cell_type_B, plasma$isotype))
+colnames(clusters)[[2]]<-"isotype"
+
+p =ggplot(clusters) + 
+  geom_bar(aes(x =Var1, y= Freq, fill = isotype),stat = "identity",width = 0.6)+ 
+  labs(x=NULL,y = 'Number of Cells')+
+  theme_cowplot()+
+  scale_fill_manual(values=color_isotype, limits = order_isotype)+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1, vjust = 1,size = rel(1)),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))+
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)))+
+  scale_y_continuous(expand = c(0,0))+
+  coord_flip()
+ggsave("fig5/5j_plasma_disease_celltype_isotypye_num.pdf",p,width = 5, height = 4)
+```
+
+# fig5k vlnplot
+```{r}
+plasma <- scRNAsubB[,scRNAsubB$cell_type_B %in% c("PC.1","PC.2","PC.3","PB")]
+plasma <- plasma[,plasma$disease == "Pneumonia"]
+plasma$cell_type_B <- factor(plasma$cell_type_B,levels = c("PC.3","PC.2","PC.1","PB"))
+```
+
+
+```{r}
+p1 = VlnPlot(plasma,"ITGAE",group.by = "cell_type_B",pt.size = 0,cols = color_B)+coord_flip()+NoLegend()+
+  labs(NULL)+theme(axis.title = element_blank(),axis.text = element_text(size = 16),
+                   axis.text.x = element_text(angle = 0,hjust = 0.5, vjust = 0.5))
+
+p2 = VlnPlot(plasma,"CXCR3",group.by = "cell_type_B",pt.size = 0,cols = color_B)+coord_flip()+NoLegend()+
+  labs(NULL)+theme(axis.title = element_blank(),axis.text.y = element_blank(),
+                   axis.text.x = element_text(size = 16,angle = 0,hjust = 0.5, vjust = 0.5))
+p3 = p1|p2
+p = wrap_elements(panel = p3) + labs(tag = "Expression Level") +
+  theme(plot.tag = element_text(size = 16),plot.tag.position = "bottom")
+
+ggsave("fig5/5k_Vln_plasma_disease.pdf",p,width = 4, height = 4.3)
+```
+
+# fig5l BCR migration
+```{r}
+disease <- scRNAsubB[,scRNAsubB$disease %in% "Pneumonia"]
+
+metadata <- disease@meta.data
+da.tcr.st1 <- metadata %>% 
+  ungroup() %>% 
+  mutate(Cell_Name=rownames(metadata), 
+         clone.id = metadata$BCR_ID, 
+         majorCluster=metadata$cell_type_B, 
+         loc=metadata$sample_type) %>%
+  dplyr::select(Cell_Name,clone.id,patient,majorCluster,loc,group,patient) %>% 
+  as.data.frame()
+da.tcr.st2 <- na.omit(da.tcr.st1)
+```
+
+```{r}
+obj <- new("Startrac",da.tcr.st2,aid="Bcell")
+obj <- calIndex(obj)
+clus.data = obj@cluster.data
+
+tic("pIndex")
+obj <- pIndex(obj)
+toc()
+
+df.migr <- obj@pIndex.migr
+df.migr <- df.migr[,-1]
+rownames(df.migr)=df.migr[,1]
+df.migr=df.migr[,-1]
+df.migr <- as.data.frame(df.migr)
+
+df.migr.2 <-gather(df.migr, migr, value, 1:3)
+df.migr.2$majorCluster <- rep(rownames(df.migr),3)
+
+
+df.migr.2 <- subset(df.migr.2,df.migr.2$majorCluster %in% c("PC.3","PC.2","PC.1","PB"))
+df.migr.2$majorCluster<- factor(df.migr.2$majorCluster, 
+                                levels =c("PC.3","PC.2","PC.1","PB"))
+
+# no break
+p=ggplot(df.migr.2, aes(x=majorCluster, y=value, fill=migr)) +
+  geom_bar(stat="identity", position=position_dodge(),width=.8)+
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(ylim = c(0, 0.45))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))+
+  scale_fill_manual(values=color_migr)+
+  xlab(NULL)+ylab("BCR Migration Index")+
+  coord_flip()
+
+ggsave("fig5/5l_plasma_disease_migration.pdf",p,width = 5, height = 4)
+```
+

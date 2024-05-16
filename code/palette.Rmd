@@ -1,0 +1,350 @@
+---
+title: "palette"
+author: "YueanZhao"
+date: '2023-05-22'
+output: html_document
+---
+# packages
+```{r}
+library("dplyr")
+library("Seurat")
+library("DoubletFinder")
+library("patchwork")
+library("tidyverse")
+library("SingleR")
+library("RColorBrewer")
+library("harmony")
+library("clustree")
+library("ggvenn")
+library("scales")
+library("tidyr")
+library("scRepertoire")
+library("ggpointdensity") 
+library("cowplot") 
+library("pheatmap") 
+library("Nebulosa")
+library("ComplexHeatmap")
+library("scCustomize")
+library("ggpubr")
+library("rstatix")
+library("ggalluvial")
+library("reshape2")
+library("circlize")
+library("clusterProfiler")
+library("org.Hs.eg.db") 
+library("dplyr")
+library("tibble")
+library("ggplot2")
+library("stringr")
+library("purrr")
+library("readr")
+library("BiocGenerics")
+library("readxl")
+library("ggnewscale")
+library("ggpie")
+library("ggtree")
+library("SingleR")
+library("SummarizedExperiment")
+library("clustree")
+library("Startrac")
+library("ggbreak")
+library("circlize")
+library("EnhancedVolcano")
+library("ggrepel")
+library("tictoc")
+library("Hmisc")
+library("Matrix")
+library("svglite")
+library("CellChat")
+library("scatterplot3d")
+library("destiny")
+library("scoper")
+library("dowser")
+library("alakazam")
+library("viridis")
+library("tigger")
+library("VennDiagram")
+library("shazam")
+library("NMF")
+```
+
+```{r}
+sink("sessionInfo.txt")
+sessionInfo()
+sink()
+```
+
+
+# theme
+```{r}
+theme_blank <- theme(axis.title=element_blank(),axis.text=element_blank(),
+                     axis.ticks=element_blank(),axis.line=element_blank(),
+                     plot.title=element_blank())
+```
+
+
+```{r}
+top.mar=0
+right.mar=0.05
+bottom.mar=0
+left.mar=0.05
+theme_GO <- theme_cowplot()+
+           theme(text=element_text(family = "sans",colour ="black",size = 12),
+                 axis.text.y = element_text(size = 12),
+                 axis.line.y=element_blank(),
+                 axis.ticks.y = element_blank(),
+                 axis.line = element_line(size = 0.6,colour = "black"),
+                 axis.ticks = element_line(size = 0.6,colour = "black"),
+                 axis.ticks.length = unit(1.5,units = "mm"),
+                 plot.margin=unit(x=c(top.mar,right.mar,bottom.mar,left.mar),units="inches"))
+```
+
+```{r}
+legend = guide_legend(label.theme = element_text(size = 6),nrow = 8,ncol = 6,byrow = T)
+```
+
+# palette
+## celltype
+```{r}
+color_celltype = c("NK cells" =  "#1976D2",
+                   "CD8+ T cells" =  "#6CC4A1",
+                   "Neutrophils" =  "#F47C7C",
+                   "CD14+ Monocytes" =   "#FFAD60",
+                   "Macrophages" =   "#FAC213",
+                   "Plasma cells" =   "#646FD4",
+                   "CD16+ Monocytes" =   "#FF7F3F",
+                   "Apoptotic T cells" =   "#AEDBCE",
+                   "B cells" =  "#9BA3EB",
+                   "CD4+ T cells" = "#A0D995",
+                   "cDCs" =    "#B25068",
+                   "pDCs" =    "#F48FB1",
+                   "Megakaryocytes" =   "#EF9A9A",
+                   "Fibroblasts" =    "#A267AC",
+                   "Cycling" =   "#42A5F5",
+                   "Mast cells"  =  "#9900F0",
+                   "Endothelial cells" =   "#FF5677",
+                   "Epithelial cells" = "#CE7BB0"
+)
+color_AT <- c("AT2" = "#82CD47", "AT1" = "#59C1BD", "DATP" = "#FF7B54")
+color_T8 <- c("T8_naive" = "#F7DC6F",
+               "T8_cm" = "#FFB74D",
+               "T8_em.1" = "#C39BD3",
+               "T8_em.2" = "#A569BD",
+               "T8_rm" = "#EC7063",
+               "T8_emra/eff.1" = "#AED581",
+               "T8_emra/eff.2" = "#7DCEA0",
+               "T8_NK-like" = "#4DB6AC",
+               "Cycling" = "#42A5F5","MAIT" = "#F8BBD0")
+color_T8_main <- c("T8_naive" = "#F7DC6F",
+               "T8_cm" = "#FFB74D",
+               "T8_em" = "#C39BD3",
+               "T8_rm" = "#EC7063",
+               "T8_emra/eff" = "#AED581",
+               "T8_NK-like" = "#4DB6AC",
+               "Cycling" = "#42A5F5","MAIT" = "#F8BBD0")
+color_T <- c("CD4_T" = "#9CCC65",
+             "CD8_T" = "#F48FB1",
+             "NK/NKT" = "#FFB300",
+             "GDT" = "#AED6F1",
+             "MAIT" = "#D7BDE2",
+             "Cycling" = "#42A5F5"  )
+color_T4 <- c("T4_Tn" = "#BA94D1",
+              "T4_Treg" = "#9CCC65",
+              "T4_Tm" = "#F06292",
+              "T4_Tfh" = "#FFC4C4",
+              "T4_Th1" = "#F49D1A",
+              "T4_Th17" = "#FFD372",
+              "T4_Th2" = "#E97777",
+              "T4_CTL" = "#F55353",
+              "Cycling" = "#42A5F5"
+  )
+color_B <- c( "B_MZ" = "#FFDDCC", 
+              "B_naive" = "#FFCCCC",
+              "B_GC" = "#FFBBCC",
+              "B_pre_mem" = "#F3BAD6", 
+              "B_mem.1" = "#EA86B6",
+              "B_mem.2" = "#E05297",
+              "PB" = "#00BCD4",
+              "PC.1" = "#D2E603",
+              "PC.2" = "#28DF99",
+              "PC.3" = "#81B214")
+
+color_B_main <- c( "B_MZ" = "#FFDDCC", 
+              "B_naive" = "#FFCCCC",
+              "B_GC" = "#FFBBCC",
+              "B_pre_mem" = "#F3BAD6", 
+              "B_mem" = "#EA86B6",
+              "PB" = "#00BCD4",
+              "PC.1" = "#D2E603",
+              "PC.2" = "#28DF99",
+              "PC.3" = "#81B214")
+
+color_Mye <- c("Mono_CD14" = "#CE93D8",
+               "Mono_CD14_CD16" = "#A5D6A7",
+               "Mono_CD16" = "#90CAF9",
+               "transitioning MDM_CCL2" =  "#F48FB1"  ,
+               "transitioning MDM_FMN1"   = "#FFAB91",
+               "MDM_CCL18" = "#FFCC80",
+               "AM_FABP4" = "#80CBC4")
+
+color_epi <- c("AT2" = "#1E78B4", 
+               "Ciliated cells" = "#90CAF9",
+               "EMT_Epi" = "#74C476", 
+               "Tuft cells" = "#F59899", 
+               "AT1" = "#9B59B6",
+               "Club cells" = "#F47E1F",
+               "Goblet cells" = "#E11E26",
+               "Mesothelial cells" = "#FCBF6E"
+)
+```
+
+## patient/group
+```{r}
+color_sampletype <- c("Lung" = "#A569BD","PBMC" = "#45B39D","BALF" = "#F5B041")
+color_disease <- c("Ctrl" = "#2166ac","Pneumonia" = "#b2182b")
+color_infection <- c('bacterial'="#E97777",'non-bacterial'="#D09CFA","ctrl" = "#9CCC65")
+color_migr <- c("BALF-Lung" = "#D14D72","BALF-PBMC" = "#78909C","Lung-PBMC" = "#1E88E5")
+color_pattern <- c("pattern1a" = "#ED7216","pattern1b" ="#BFDB38","pattern2" ="#1F8A70")
+color_TCR_clonetype_disease <- c("Single (X = 1)" = "#581845","Small (1 < X <= 5)" = "#900C3F", "Medium (5 < X <= 20)" = "#C70039","Large (20 < X <= 100)" = "#FF5744", "Hyperexpanded (100 < X <= 2000)" = "#FFC30F")
+color_TCR_clonetype_ctrl <- c("Single (X = 1)" = "#2171B5","Small (1 < X <= 5)" = "#4292C6", "Medium (5 < X <= 20)" = "#6BAED6","Large (20 < X <= 100)" = "#9ECAE1", "Hyperexpanded (100 < X <= 2000)" = "#C6DBEF")
+
+color_BCR_clonetype_disease <- c("Single (n = 1)" = "#581845","Small (1 < n <= 5)" = "#900C3F", "Medium (5 < n <= 10)" = "#C70039","Large (10 < n <= 100)" = "#FF5744", "Hyperexpanded (n > 100)" = "#FFC30F")
+color_BCR_clonetype_ctrl <- c("Single (n = 1)" = "#2171B5","Small (1 < n <= 5)" = "#4292C6", "Medium (5 < n <= 10)" = "#6BAED6","Large (10 < n <= 100)" = "#9ECAE1", "Hyperexpanded (n > 100)" = "#C6DBEF")
+
+
+color_origID = c(P1_BALF = "#B03A2E",P1_Lung = "#EC7063",P1_PBMC = "#F5B7B1",
+                 P2_BALF = "#C2185B",P2_Lung = "#EC407A",P2_PBMC = "#F48FB1",
+                 P3_BALF = "#E64A19",P3_Lung = "#FF7043",P3_PBMC = "#FFAB91",
+                 P4_BALF = "#D32F2F",P4_Lung = "#EF5350",P4_PBMC = "#EF9A9A",
+                 P5_Lung = "#FFCA28",P5_PBMC = "#FFE082",P5_BALF = "#FFA000",
+                 P6_BALF = "#F57C00",P6_Lung = "#FFA726",P6_PBMC = "#FFCC80",
+                 P7_BALF = "#303F9F",P7_Lung = "#5C6BC0",P7_PBMC = "#9FA8DA",
+                 P8_BALF = "#512DA8",P8_Lung = "#673AB7",P8_PBMC = "#B39DDB",
+                 P9_BALF = "#76448A",P9_Lung = "#9B59B6",P9_PBMC = "#D7BDE2",
+                 P10_BALF = "#2874A6",P10_Lung = "#3498DB",P10_PBMC = "#85C1E9",
+                 P11_BALF = "#0097A7",P11_Lung = "#00BCD4",P11_PBMC = "#80DEEA",
+                 P12_Lung = "#2196F3", P12_PBMC = "#90CAF9",P12_BALF = "#1976D2",
+                 C1_Lung = "#58D68D",C1_PBMC = "#ABEBC6",
+                 C2_Lung = "#52BE80",C2_PBMC = "#A9DFBF",
+                 C3_Lung = "#45B39D",C3_PBMC = "#A2D9CE",
+                 C4_Lung = "#9CCC65",C4_PBMC = "#C5E1A5",
+                 C5_Lung = "#66BB6A",C5_PBMC = "#A5D6A7")
+color_patientID <- c(P8 = "#B39DDB",P10 = "#85C1E9",P1 = "#F5B7B1",P4 = "#EF9A9A",
+                   P7 = "#9FA8DA",P2 = "#F48FB1",C2 = "#A9DFBF",P9 = "#D7BDE2",
+                   C1 = "#ABEBC6",P5 = "#FFE082",P11 = "#80DEEA",P3 = "#FFAB91",
+                   P6 = "#FFCC80",C3 = "#A2D9CE",C4 = "#C5E1A5",C5 = "#A5D6A7",P12 = "#90CAF9")
+color_P6_TCR <- c(P6_T_1 = "#34A047",
+                  P6_T_6 = "#FCBF6E",
+                  P6_T_9 = "#F47E1F",
+                  P6_T_10 = "#74C476")
+color_isotype <- c(IGHA1 = "#EF3B2C", IGHA2 = "#FB6A4A",
+                   IGHD =  "#74C476" ,IGHE =  "#BA68C8",
+                   IGHG1 = "#9ECAE1", IGHG2 = "#6BAED6", IGHG3 = "#4292C6", IGHG4 = "#2171B5",
+                   IGHM = "#FFCA28")
+
+```
+
+## r color brewer
+```{r}
+dput(brewer.pal(9,"YlOrRd"))
+dput(brewer.pal(9,"YlOrBr"))
+dput(brewer.pal(9,"YlGnBu"))
+dput(brewer.pal(9,"YlGn"))
+dput(brewer.pal(9,"Reds"))
+dput(brewer.pal(9,"RdPu"))
+dput(brewer.pal(9,"Purples"))
+dput(brewer.pal(9,"PuRd"))
+dput(brewer.pal(9,"PuBuGn"))
+dput(brewer.pal(9,"PuBu"))
+dput(brewer.pal(9,"OrRd"))
+dput(brewer.pal(9,"Oranges"))
+dput(brewer.pal(9,"Greys"))
+dput(brewer.pal(9,"Greens"))
+dput(brewer.pal(9,"GnBu"))
+dput(brewer.pal(9,"BuPu"))
+dput(brewer.pal(9,"BuGn"))
+dput(brewer.pal(9,"Blues"))
+```
+```{r}
+c("#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C", "#FC4E2A", "#E31A1C", "#BD0026", "#800026")
+c("#FFFFE5", "#FFF7BC", "#FEE391", "#FEC44F", "#FE9929", "#EC7014", "#CC4C02", "#993404", "#662506")
+c("#FFFFD9", "#EDF8B1", "#C7E9B4", "#7FCDBB", "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58")
+c("#FFFFE5", "#F7FCB9", "#D9F0A3", "#ADDD8E", "#78C679", "#41AB5D", "#238443", "#006837", "#004529")
+c("#FFF5F0", "#FEE0D2", "#FCBBA1", "#FC9272", "#FB6A4A", "#EF3B2C", "#CB181D", "#A50F15", "#67000D")
+c("#FFF7F3", "#FDE0DD", "#FCC5C0", "#FA9FB5", "#F768A1", "#DD3497", "#AE017E", "#7A0177", "#49006A")
+c("#FCFBFD", "#EFEDF5", "#DADAEB", "#BCBDDC", "#9E9AC8", "#807DBA", "#6A51A3", "#54278F", "#3F007D")
+c("#F7F4F9", "#E7E1EF", "#D4B9DA", "#C994C7", "#DF65B0", "#E7298A", "#CE1256", "#980043", "#67001F")
+c("#FFF7FB", "#ECE2F0", "#D0D1E6", "#A6BDDB", "#67A9CF", "#3690C0", "#02818A", "#016C59", "#014636")
+c("#FFF7FB", "#ECE7F2", "#D0D1E6", "#A6BDDB", "#74A9CF", "#3690C0", "#0570B0", "#045A8D", "#023858")
+c("#FFF7EC", "#FEE8C8", "#FDD49E", "#FDBB84", "#FC8D59", "#EF6548", "#D7301F", "#B30000", "#7F0000")
+c("#FFF5EB", "#FEE6CE", "#FDD0A2", "#FDAE6B", "#FD8D3C", "#F16913", "#D94801", "#A63603", "#7F2704")
+c("#FFFFFF", "#F0F0F0", "#D9D9D9", "#BDBDBD", "#969696", "#737373", "#525252", "#252525", "#000000")
+c("#F7FCF5", "#E5F5E0", "#C7E9C0", "#A1D99B", "#74C476", "#41AB5D", "#238B45", "#006D2C", "#00441B")
+c("#F7FCF0", "#E0F3DB", "#CCEBC5", "#A8DDB5", "#7BCCC4", "#4EB3D3", "#2B8CBE", "#0868AC", "#084081")
+c("#F7FCFD", "#E0ECF4", "#BFD3E6", "#9EBCDA", "#8C96C6", "#8C6BB1", "#88419D", "#810F7C", "#4D004B")
+c("#F7FCFD", "#E5F5F9", "#CCECE6", "#99D8C9", "#66C2A4", "#41AE76", "#238B45", "#006D2C", "#00441B")
+c("#F7FBFF", "#DEEBF7", "#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#08519C", "#08306B")
+```
+
+## FeaturePlot
+```{r}
+beach = c("4"="#87D2DB","1"="#5BB1CB","6"="#4F66AF","3"="#F15F30","5"="#F7962E","2"="#FCEE2B")
+coolwarm = c("1"="#4858A7", "4"="#788FC8", "5"="#D6DAE1", "3"="#F49B7C", "2"="#B51F29")
+fireworks = c("5"="white","2"="#2488F0","4"="#7F3F98","3"="#E22929","1"="#FCB31A")
+greyMagma = c("2"="grey", "4"="#FB8861FF", "5"="#B63679FF", "3"="#51127CFF", "1"="#000004FF")
+fireworks2 = c("5"="black", "2"="#2488F0","4"="#7F3F98","3"="#E22929","1"="#FCB31A")
+purpleOrange = c("5"="#581845", "2"="#900C3F", "4"="#C70039", "3"="#FF5744", "1"="#FFC30F")
+```
+
+# order
+```{r}
+order_celltype_main <- c("T cells","NK cells","B cells","Plasma cells","Myeloid cells",
+                         "Mast cells","DCs","Megakaryocytes","Cycling","Parenchymal cells")
+order_celltype <- c("NK cells","CD8+ T cells","CD4+ T cells","Apoptotic T cells","Cycling",
+                    "B cells","Plasma cells","Megakaryocytes","Neutrophils","CD14+ Monocytes",
+                    "Macrophages","CD16+ Monocytes","pDCs","cDCs","Mast cells",
+                    "Fibroblasts","Epithelial cells","Endothelial cells")
+order_AT <- c("AT1","AT2","DATP")
+order_disease <- c("Pneumonia","Ctrl")
+order_origID <- c("P1_PBMC","P1_Lung","P1_BALF","P2_PBMC","P2_Lung","P2_BALF",                                                   "P3_PBMC","P3_Lung","P3_BALF","P4_PBMC","P4_Lung","P4_BALF",
+                  "P5_PBMC","P5_BALF","P5_Lung","P6_PBMC","P6_Lung","P6_BALF",
+                  "P7_PBMC","P7_Lung","P7_BALF","P8_PBMC","P8_Lung","P8_BALF",
+                  "P9_PBMC","P9_Lung","P9_BALF","P10_PBMC","P10_Lung","P10_BALF",
+                  "P11_PBMC","P11_Lung","P11_BALF","P12_Lung","P12_PBMC","P12_BALF",
+                  "C1_PBMC","C1_Lung","C2_PBMC","C2_Lung","C3_PBMC","C3_Lung",
+                  "C4_PBMC","C4_Lung","C5_PBMC","C5_Lung")
+order_patientID <- c("P1","P2","P3","P4","P5","P6","P7","P8","P9","P10","P11","P12",
+                     "C1","C2","C3","C4","C5")
+
+order_T8_main <- c("T8_naive","T8_cm","T8_em","T8_emra/eff","T8_NK-like","T8_rm","Cycling","MAIT")
+order_T8 <- c("T8_naive","T8_cm","T8_em.1","T8_em.2","T8_emra/eff.1","T8_emra/eff.2","T8_NK-like","T8_rm","Cycling","MAIT")
+order_T <- c("CD4_T","CD8_T","NK/NKT","Cycling","MAIT","GDT")
+order_T4 <- c("T4_Tn","T4_Treg","T4_Tm" ,"T4_Tfh","T4_Th1","T4_Th17","T4_Th2","T4_CTL" ,"Cycling")
+order_TCR_clonetype <- c("Single (X = 1)","Small (1 < X <= 5)", "Medium (5 < X <= 20)","Large (20 < X <= 100)", "Hyperexpanded (100 < X <= 2000)")
+
+order_pattern <- c("pattern1a", "pattern1b",  "pattern2")
+
+order_B <- c( "B_MZ","B_naive","B_GC","B_pre_mem", "B_mem.1","B_mem.2",
+              "PB","PC.1","PC.2","PC.3")
+order_B_main <- c( "B.cells","Plasmablast","Plasma.1","Plasma.2","Plasma.3")
+order_isotype <- c("IGHM","IGHA1", "IGHA2","IGHD","IGHE","IGHG1","IGHG2","IGHG3","IGHG4")
+order_BCR_clonetype <- c("Single (n = 1)", "Small (1 < n <= 5)","Medium (5 < n <= 10)","Large (10 < n <= 100)","Hyperexpanded (n > 100)")
+order_isotype <- c("IGHM","IGHA1","IGHA2","IGHD","IGHE","IGHG1", "IGHG2", "IGHG3", "IGHG4")
+
+order_Mye <- c("Mono_CD14","Mono_CD14_CD16","Mono_CD16",
+               "transitioning MDM_CCL2","transitioning MDM_FMN1",
+               "MDM_CCL18","AM_FABP4")
+
+order_epi <- c("AT1","AT2","EMT_Epi","Ciliated cells","Tuft cells","Club cells","Goblet cells",
+               "Mesothelial cells")
+```
+
+# function
+```{r}
+myfill <- function(df){
+  df2 <- df %>%
+    mutate(across(where(is.character),function(x){ replace(x,is.na(x),"0")})) %>%
+    mutate(across(where(is.numeric),function(x) {replace(x,is.na(x),0)}))
+  return(df2)
+}
+```

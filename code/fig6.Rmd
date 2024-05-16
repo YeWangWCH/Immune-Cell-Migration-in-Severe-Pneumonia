@@ -1,0 +1,323 @@
+---
+title: "Figure 6"
+author: "YueanZhao"
+output: html_document
+---
+```{r}
+rm(list = ls())
+gc()
+```
+
+```{r}
+scRNAsubM <- readRDS("rds/scRNAsubM_macro&mono_anno.rds")
+scRNAsubE <- readRDS("rds/scRNAsubE_anno.rds")
+```
+
+```{r}
+scRNAsubM$cell_type <- factor(scRNAsubM$cell_type, levels = order_Mye)
+scRNAsubM$disease <- factor(scRNAsubM$disease, levels = order_disease)
+
+scRNAsubE$cell_type <- factor(scRNAsubE$cell_type, levels = order_epi)
+scRNAsubE$disease <- factor(scRNAsubE$disease, levels = order_disease)
+```
+
+# 6a Mye DimPlot
+
+```{r}
+p = DimPlot(scRNAsubM, group.by = "cell_type",cols = color_Mye,label = F) + 
+    theme_cowplot() + theme_blank + NoLegend()
+ggsave("fig6/6a_DimPlot_Mye.png",p, width = 5, height = 5)
+```
+
+```{r}
+p = DimPlot(scRNAsubM, group.by = "cell_type",cols = color_Mye,label = F) 
+l =as_ggplot(get_legend(p)) 
+ggsave("fig6/6a_DimPlot_Mye_legend.pdf",l)
+```
+
+# 6b heatmap
+```{r}
+DefaultAssay(scRNAsubM) <- "RNA"
+
+Mye_genes <- c("IL1B","IL6","CCL2","CCL3","CCL4","CCL7","CCL23","TNF","CXCL2","CXCL9","CXCL10","SOCS3","HSPH1","HSPB1","HSPA1B","HSPA1A", #pro-inflammatory
+               "CD163","MRC1","MSR1","CCL13","CCL18","IL10","FOLR2","STAB1","CD163L1","PLD4","F13A1","MERTK","AXL","CCL22","GPNMB","CHI3L1", ##anti-inflammatory
+               "HLA-A","HLA-B","HLA-C","HLA-E","HLA-F", #MHCI
+               "HLA-DRA","HLA-DRB1","HLA-DRB5","HLA-DQA1","HLA-DQB1","HLA-DPB1","HLA-DMA","HLA-DMB" #MHCII
+)
+
+scRNAsubM@active.ident<- factor(scRNAsubM@active.ident, 
+                                levels =order_Mye)
+
+Mye_genes <- intersect(Mye_genes, rownames(GetAssayData(scRNAsubM, slot = 'data')))
+mat <- AverageExpression(scRNAsubM, features = Mye_genes, slot = 'data',assays = "RNA")
+mat1 <- t(scale(t(mat$RNA)))
+
+col_spl <- factor(c(rep(c('pro-inflammatory', 'anti-inflammatory',"MHCI","MHCII"), 
+                        c(16,16,5,8))), 
+                  levels= c('pro-inflammatory', 'anti-inflammatory',"MHCI","MHCII"))
+ha = columnAnnotation(foo = anno_block(gp = gpar(fill = "black"), labels = NULL,which = "row", height = unit(0.5, "mm")))
+
+colnames(mat1) <- c("Mono_CD14","Mono_CD14_CD16","Mono_CD16","tMDM_CCL2","tMDM_FMN1","MDM_CCL18","AM_FABP4")
+p = Heatmap(t(mat1), name = "avg_Exp", cluster_rows = F, cluster_columns = F,
+            col = colorRamp2(c(-2, 0, 2), c("#2166ac","white","#b2182b")),
+            column_names_rot = 45,row_names_side = "left",
+            column_names_gp = gpar(fontsize = 10),row_names_gp = gpar(fontsize = 10),
+            height = unit(1.4, "in"), width = unit(9, "in"),
+            top_annotation = ha,
+            column_split = col_spl,column_title_gp = gpar(fontsize = 10),column_gap = unit(2, "mm"))
+
+pdf("fig6/6b_gene_heatmap.pdf",width = 12,height = 3)
+draw(p)
+dev.off()
+```
+
+
+# 6c disease density by sample type
+```{r}
+disease <- scRNAsubM[,scRNAsubM$disease == "Pneumonia"]
+umap = disease@reductions$umap@cell.embeddings %>% 
+       as.data.frame() %>% 
+       cbind(sample_type = disease@meta.data$sample_type)
+
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~sample_type, nrow = 1) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = rev( c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    theme_cowplot() + 
+    theme(axis.title=element_blank(),axis.text=element_blank(),
+                     axis.ticks=element_blank(),axis.line=element_blank(),
+                     plot.title=element_text(hjust = 0.5),
+          strip.text = element_blank(), strip.background = element_blank())+
+    NoLegend()
+
+ggsave("fig6/6c_density_disease_sampletype.png",p,width = 12, height = 4)
+```
+
+```{r}
+p = ggplot(data = umap, mapping = aes(x = UMAP_1,y = UMAP_2)) + 
+    facet_wrap(~sample_type, nrow = 3) +
+    geom_pointdensity(adjust= 0.5) +
+    scale_color_gradientn(colors = rev( c("#581845", "#900C3F","#C70039","#FF5744","#FFC30F","#FBF9C1")))+
+    theme(legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+          legend.key.size = unit(0.2,"in"))
+l =as_ggplot(get_legend(p)) 
+ggsave("fig6/6b_density_disease_sampletype_legend.pdf",l,width = 1,height = 1.5)
+```
+
+# 6d featureplot
+
+## pro inflammation
+```{r}
+pro_markers <- list(c("IL1B","IL6","CCL2","CCL3","CCL4","CCL7","CCL23","TNF","CXCL2","CXCL9","CXCL10","SOCS3","HSPH1","HSPB1","HSPA1B","HSPA1A"))
+```
+
+```{r}
+scRNAsubM <- AddModuleScore(
+  object = scRNAsubM,
+  ctrl = 20,
+  features = pro_markers,
+  cols = coolwarm,
+  name = 'pro_infl'
+)
+names(scRNAsubM@meta.data)[names(scRNAsubM@meta.data) =="pro_infl1"] <-"pro_infl"
+
+p = FeaturePlot(scRNAsubM,features="pro_infl",cols = beach,raster = F) 
+l =as_ggplot(get_legend(p)) 
+ggsave("fig6/6d_score_proinfl_legend.pdf",l)
+```
+
+## anti inflammation
+
+```{r}
+anti_markers <- list(c("CD163","MRC1","MSR1","CCL13","CCL18","IL10","FOLR2","STAB1","CD163L1","PLD4","F13A1","MERTK","AXL","CCL22","GPNMB","CHI3L1"))
+```
+
+```{r}
+scRNAsubM <- AddModuleScore(
+  object = scRNAsubM,
+  ctrl = 20,
+  features = anti_markers,
+  cols = coolwarm,
+  name = 'anti_infl'
+)
+names(scRNAsubM@meta.data)[names(scRNAsubM@meta.data) =="anti_infl1"] <-"anti_infl"
+```
+
+## mono
+
+```{r}
+mono_markers <- list(c("LYZ","S100A8","CD14","VCAN","FCN1","S100A9"))
+```
+
+```{r}
+scRNAsubM <- AddModuleScore(
+  object = scRNAsubM,
+  ctrl = 20,
+  features = mono_markers,
+  cols = coolwarm,
+  name = 'mono'
+)
+names(scRNAsubM@meta.data)[names(scRNAsubM@meta.data) =="mono1"] <-"mono"
+```
+
+```{r}
+p1 = FeaturePlot(scRNAsubM,features="pro_infl",cols = beach,raster = F) +
+     NoLegend()+theme_blank
+p2 = FeaturePlot(scRNAsubM,features="anti_infl",cols = beach,raster = F) + 
+     NoLegend()+theme_blank
+p3 = FeaturePlot(scRNAsubM,features="mono",cols = beach,raster = F) + 
+     NoLegend()+theme_blank
+
+p = p1|p2|p3
+ggsave("fig6/6d_score_pro&anti&mono.png", p, width = 12,height = 4)
+```
+
+# 6e prop disease sample type
+```{r}
+disease <- scRNAsubM[,scRNAsubM$disease %in% "Pneumonia"]
+
+Ratio <- disease@meta.data %>%
+  group_by(sample_type, cell_type) %>% 
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+         
+p= ggplot(Ratio,aes(x=sample_type,y= relative_freq,
+                    fill=cell_type,stratum=cell_type, alluvium=cell_type))+
+  geom_col(width = 0.5, color='black',size = 0.25)+
+  xlab(NULL)+ylab("Mono & Macro Pneumonia Celltype Percentage")+
+  scale_fill_manual(values =color_Mye)+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))+
+  geom_flow(width=0.5,alpha=0.4, knot.pos=0.5)
+
+ggsave("fig6/6e_prop_celltype_sampletype.pdf",p,width = 5, height = 5)
+```
+
+
+# 6f cellchat BALF CCL2 CXCL
+## w/ T8
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_T8.rds")
+
+netAnalysis_contribution(cellchat, signaling = "CXCL")
+pairLR.CXCL <- extractEnrichedLR(cellchat, signaling = "CXCL", geneLR.return = FALSE)
+LR.show <- pairLR.CXCL[1,]
+
+svglite(file = "fig6/6f_cellchat_BALFCCL2&T8_CXCL.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CXCL", pairLR.use = LR.show, 
+                    sources.use = "BALF_tMDM_CCL2",
+                     color.use = c(color_T8_main,"#F48FB1"),
+                     layout = "circle")
+dev.off()
+```
+
+## w/ T4
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_T4.rds")
+
+netAnalysis_contribution(cellchat, signaling = "CXCL")
+pairLR.CXCL <- extractEnrichedLR(cellchat, signaling = "CXCL", geneLR.return = FALSE)
+LR.show <- pairLR.CXCL[1,]
+
+svglite(file = "fig6/6f_cellchat_BALFCCL2&T4_CXCL.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CXCL", pairLR.use = LR.show, 
+                     sources.use = "BALF_tMDM_CCL2",
+                     color.use = c(color_T4,"#F48FB1"),
+                     layout = "circle")
+dev.off()
+```
+
+## w/ B&P
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-tMDM-CCL2_B&P.rds")
+
+netAnalysis_contribution(cellchat, signaling = "CXCL")
+pairLR.CXCL <- extractEnrichedLR(cellchat, signaling = "CXCL", geneLR.return = FALSE)
+LR.show <- pairLR.CXCL[1,]
+
+svglite(file = "fig6/6f_cellchat_BALFCCL2&B_CXCL.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CXCL", pairLR.use = LR.show, 
+                     sources.use = "BALF_tMDM_CCL2",
+                     color.use = c(color_B_main,"#F48FB1"),
+                     layout = "circle")
+dev.off()
+```
+
+# 6g cellchat AM CCL23-CCR1
+```{r}
+cellchat <- readRDS("cellchat/cellchat_Mono&Macro.rds")
+
+netAnalysis_contribution(cellchat, signaling = "CCL")
+pairLR.CCL <- extractEnrichedLR(cellchat, signaling = "CCL", geneLR.return = FALSE)
+LR.show <- pairLR.CCL[2,]
+
+svglite(file = "fig6/6g_AM_cellchat_CCL23-CCR1.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CCL", pairLR.use = LR.show, layout = "circle",
+                     color.use = color_Mye,sources.use = "AM_FABP4")
+
+dev.off()
+```
+
+# 6h epi DimPlot
+
+
+```{r}
+p=DimPlot(object = scRNAsubE, 
+          repel = TRUE,
+          cols = color_epi,
+          raster = F) + 
+          NoLegend() +
+          theme_blank
+
+ggsave('fig6/6h_EPI_DimPlot_celltype.png', p, width = 5, height = 5)
+
+p = DimPlot(scRNAsubE, group.by = "cell_type",cols = color_epi,label = F) 
+l =as_ggplot(get_legend(p)) 
+ggsave("fig6/6h_EPI_DimPlot_celltype_legend.pdf",l)
+```
+
+
+
+# 6i prop disease
+
+```{r}
+disease <- scRNAsubE[,scRNAsubE$disease %in% "Pneumonia" & scRNAsubE$sample_type %in% c("Lung","BALF")]
+
+Ratio <- disease@meta.data %>%
+  group_by(sample_type, cell_type) %>% 
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+         
+p= ggplot(Ratio,aes(x=sample_type,y= relative_freq,
+                    fill=cell_type,stratum=cell_type, alluvium=cell_type))+
+  geom_col(width = 0.5, color='black',size = 0.25)+
+  xlab(NULL)+ylab("Epithelial Pneumonia Celltype Percentage")+
+  scale_fill_manual(values =color_epi)+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))+
+  geom_flow(width=0.5,alpha=0.4, knot.pos=0.5)
+
+ggsave("fig6/6i_epi_prop_celltype_sampletype.pdf",p,width = 4, height = 4)
+```
+
+# 6j cellchat_Epi BALF CCL15-CCR1
+```{r}
+cellchat <- readRDS("cellchat/cellchat_BALF-ciliated_mono&macro.rds")
+netAnalysis_contribution(cellchat, signaling = "CCL")
+pairLR.CCL <- extractEnrichedLR(cellchat, signaling = "CCL", geneLR.return = FALSE)
+LR.show <- pairLR.CCL[2,]
+
+svglite(file = "fig6/6k_epi&mono_cellchat_CCL15-CCR1.svg", width=7, height=7)
+netVisual_individual(cellchat, signaling = "CCL", pairLR.use = LR.show, layout = "circle",
+                     color.use = c(color_Mye,"#90CAF9"),sources.use = "BALF Ciliated Epi")
+
+dev.off()
+```

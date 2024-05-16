@@ -1,0 +1,245 @@
+---
+title: "Figure S2"
+author: "YueanZhao"
+output: html_document
+---
+```{r}
+rm(list = ls())
+gc()
+```
+
+# T&NK
+## rds & palette
+```{r}
+scRNAsubT <- readRDS("rds/scRNAsubT&NK_anno_TCRID.rds")
+DefaultAssay(scRNAsubT) <- "RNA"
+```
+
+```{r}
+scRNAsubT$cell_type_main <- factor(scRNAsubT$cell_type_main, levels =order_T)
+```
+
+## s2a T&NK Dimplot
+```{r}
+p = DimPlot(scRNAsubT, group.by = "cell_type_main",
+            cols = color_T, raster = F, label = F) + NoLegend() + theme_blank
+ggsave("figS2/s2a_T&NK_DimPlot.png",p,width = 5,height = 5)
+```
+
+```{r}
+p=DimPlot(scRNAsubT, group.by = "cell_type_main",cols = color_T, raster = F, label = F)+theme_blank
+l=as_ggplot(get_legend(p)) 
+ggsave('figS2/s2a_T&NK_DimPlot_legend.pdf', l)
+```
+
+## s2b T&NK FeaturePlot
+```{r}
+DefaultAssay(scRNAsubT) <- "RNA"
+markergene_T <- c("CD3E","CD8A","CD4","TYROBP","TRDV2","SLC4A10",
+                  "MKI67","SELL","NKG7","GZMK","ITGAE","FOXP3")
+plot.list <- lapply(X = markergene_T, FUN = function(x) {
+  FeaturePlot(scRNAsubT ,
+              cols = greyMagma, 
+              features = x, raster = F)+
+    NoLegend()+theme_blank+labs(NULL)+
+    theme(plot.title = element_blank())
+})
+p <- wrap_plots(plots = plot.list, nrow=2)    
+ggsave("figS2/s2b_T&NK_featureplot.png", plot = p, width = 30 , height = 10) 
+```
+
+```{r}
+p = FeaturePlot(scRNAsubT,features="CD3E",cols = greyMagma,raster = F) + 
+    theme_blank
+l =as_ggplot(get_legend(p)) 
+ggsave("figS2/s2b_T&NK_FeaturePlot_legend.pdf",l)
+```
+
+# T8
+## rds & palette
+```{r}
+scRNAsubT8 <- readRDS("rds/scRNAsubT8_anno_TCRpercent_Cycling.NoCD4.rds")
+DefaultAssay(scRNAsubT8) <- "RNA"
+
+scRNAsubT8$cell_type <- factor(scRNAsubT8$cell_type, levels = order_T8)
+scRNAsubT8$cell_type_main <- factor(scRNAsubT8$cell_type_main, levels = order_T8_main)
+scRNAsubT8$orig.ident <- factor(scRNAsubT8$orig.ident,levels = order_origID)
+scRNAsubT8$disease<- factor(scRNAsubT8$disease, levels =c("Pneumonia","Ctrl"))
+```
+
+## s2c viral heatmap
+```{r}
+scRNAsub <- scRNAsubT8[,!(scRNAsubT8$patient %in% "C2")]
+scRNAsub[["viral"]] <- NA
+scRNAsub$viral[scRNAsub$patient == "P1"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P2"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P3"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P4"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "P5"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P6"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P7"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P8"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P9"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P10"] <- "viral"
+scRNAsub$viral[scRNAsub$patient == "P11"] <- "undetected"
+scRNAsub$viral[scRNAsub$patient == "P12"] <- "non-viral"
+scRNAsub$viral[scRNAsub$patient == "C1"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C3"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C4"] <- "ctrl"
+scRNAsub$viral[scRNAsub$patient == "C5"] <- "ctrl"
+```
+
+```{r}
+lung_rm <- scRNAsub[,scRNAsub$sample_type %in% "Lung" & scRNAsub$cell_type_main %in% "T8_rm"]
+DefaultAssay(lung_rm) <- "RNA"
+DEG <- FindMarkers(lung_rm,group.by = "viral",ident.1 = "viral", ident.2 = "non-viral",test.use = "MAST")
+write.csv(DEG, "sTable/DEG_T8_lung_rm_viral_vs_nonviral.csv")
+```
+
+
+```{r}
+dput(rownames(subset(DEG,DEG$avg_log2FC > 1 | DEG$avg_log2FC < -1)))
+
+gene_selected <- c("CCL5", "PRKY", "PTPRCAP", "MALAT1", "CD8B", 
+"CLIC3", "RNF213", "FKBP5", "IL12RB2", "CHST11",
+"ZNF683", "SLC35F1", "CD74", "CD7", "PLAAT4", "LGALS3", 
+"SLFN12L", "HOPX", "KLRC1", "GPR25",  "TNF", "IFI27", 
+"CXCL13", "BCL2", "GADD45B",  "CD27", 
+"LGALS1",  "GNLY", "CCL4L2",  "GZMB","TCF7","ITGA1", "ITGAE", "CXCR3", "CXCR6","IL7R")
+```
+
+```{r}
+lung_rm$viral <- factor(lung_rm$viral,levels = c("viral","non-viral","undetected","ctrl"))
+lung_rm <- SetIdent(lung_rm,value = "viral")
+T_genes <- intersect(gene_selected, rownames(GetAssayData(lung_rm, slot = 'data')))
+mat <- AverageExpression(lung_rm, features = T_genes, slot = 'data',assays = "RNA")
+mat1 <- scale(t(mat$RNA))
+
+p = Heatmap(mat1, name = "avg_Exp", cluster_rows = T, cluster_columns = T,
+            col = colorRamp2(c(-2, 0, 2), c("#2166ac","white","#b2182b")),
+            column_names_rot = 45,
+            column_names_gp = gpar(fontsize = 16),
+            row_names_gp = gpar(fontsize = 16),
+            row_names_side = c("left"),
+            heatmap_legend_param = list(labels_gp = gpar(font = 14),direction = "vertical"),
+            width = unit(10, "in"), height = unit(2.5, "in"))
+
+pdf("fig2/2i_heatmap_gene_rm_viral.pdf",width = 13,height = 4)
+draw(p)
+dev.off()
+```
+
+
+## s2e pbmc prop
+```{r}
+pbmc <- scRNAsubT8[,scRNAsubT8$sample_type == "PBMC" & scRNAsubT8$patient != "C2"]
+
+df_tobesummed_main = data.frame(orig.ident = pbmc$orig.ident, group = pbmc$disease, 
+                                cell_type = pbmc$cell_type_main)
+df_summed_main = df_tobesummed_main %>% group_by(orig.ident, cell_type, group) %>% tally()
+df_summed_main = df_summed_main %>% group_by(orig.ident) %>% mutate(freq = n/sum(n))
+
+stat.test <- df_summed_main%>% group_by(cell_type) %>% wilcox_test(freq ~ group) %>%add_significance()%>% add_xy_position(x = "cell_type")
+
+p = ggboxplot(df_summed_main, x = "cell_type", y = "freq",color = "group", add = "jitter",
+              palette = color_disease,width = 0.6,
+              add.params = list( color = "group", size = 2)) + 
+    ylim(0, 0.6) + 
+    stat_pvalue_manual(stat.test, label = "p.signif",hide.ns =T) +
+    xlab(NULL)+ylab("Fraction of T8 Cells in PBMC")+
+    theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 1),
+          axis.text = element_text(size = 16),
+          axis.title = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          legend.position = "right")
+ggsave("figS2/s2d_box_prop_celltype_main_PBMC.pdf", plot = p, width = 7 , height = 4)
+```
+
+# T4
+## rds & palette
+```{r}
+scRNAsubT4 <- readRDS("rds/scRNAsubT4_anno_TCRID_Cycling.NoCD8A.rds")
+DefaultAssay(scRNAsubT4) <- "RNA"
+```
+
+```{r}
+scRNAsubT4$cell_type_main<- factor(scRNAsubT4$cell_type_main, levels = order_T4)
+scRNAsubT4$disease<- factor(scRNAsubT4$disease, levels = order_disease)
+```
+
+## s2g T4 DimPlot
+
+```{r}
+p = DimPlot(scRNAsubT4, group.by = "cell_type_main",cols = color_T4,label = F) + 
+    theme_cowplot() + theme_blank + NoLegend()
+ggsave("figS2/s2f_T4_DimPlot.png",p, width = 5, height = 5)
+```
+
+```{r}
+#plot the legend
+p=DimPlot(scRNAsubT4, group.by = "cell_type_main",cols = color_T4)+theme_blank
+l=as_ggplot(get_legend(p)) 
+ggsave('figS2/s2f_T4_DimPlot_legend.pdf', l)
+```
+
+## s2h T4 DotPlot
+```{r}
+scRNAsubT4 <- SetIdent(scRNAsubT4,value = "cell_type_main")
+DefaultAssay(scRNAsubT4) <- "RNA"
+T4.all.markers <- FindAllMarkers(scRNAsubT4, 
+                              only.pos = TRUE, test.use = "MAST",
+                              min.pct = 0.25, logfc.threshold = 0.5)
+T4.top10 = T4.all.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
+write.csv(T4.all.markers, "sTable/s2g_all_markers_T4_MAST.csv", row.names = F)
+write.csv(T4.top10, "sTable/s2g_top10_markers_T4_MAST.csv", row.names = F)
+```
+
+```{r}
+markergene_T4 = c("CCR7","LEF1","SELL", 
+                "IKZF2","FOXP3","TIGIT",
+                "FAAH2","INPP4B","ANK3",
+                "ITM2A","COTL1","ITGA4",
+                "FOS","CXCR3","RBPJ",
+                "CCR6","AQP3","KLRB1", 
+                "PI16","CRIP2","GATA3",
+                "GNLY","GZMH","CX3CR1",
+                "STMN1","MKI67","TUBB"
+                )
+DefaultAssay(scRNAsubT4) <- "RNA"
+p = DotPlot(scRNAsubT4, group.by = "cell_type_main",features = markergene_T4) +
+    scale_colour_gradientn(colors=brewer.pal(9, "BuPu")) +
+    theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 1),
+          axis.text = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          legend.direction = "horizontal",legend.position = "top") +
+    xlab(NULL) + ylab(NULL)
+ggsave('figS2/s2g_T4_Dotplot.pdf', p, width = 10, height = 5)
+```
+
+## s2i T4 stacked barplot disease by sample type
+```{r}
+disease <- scRNAsubT4[,scRNAsubT4$disease == "Pneumonia"]
+```
+
+```{r}
+Ratio <- disease@meta.data %>%
+  group_by(sample_type, cell_type_main) %>% 
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+         
+p= ggplot(Ratio,aes(x=sample_type,y= relative_freq,
+                    fill=cell_type_main,stratum=cell_type_main, alluvium=cell_type_main))+
+  geom_col(width = 0.5, color='black',size = 0.25)+
+  xlab(NULL)+ylab("T4 Pneumonia Celltype Percentage")+
+  scale_fill_manual(values =color_T4)+
+  geom_flow(width=0.5,alpha=0.4, knot.pos=0.5)+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45,hjust =1, vjust = 1),
+        axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+
+ggsave("figS2/s2h_T4_prop_celltype_sampletype.pdf",p,width = 4, height = 5)
+```
